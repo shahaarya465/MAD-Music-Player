@@ -80,8 +80,10 @@ Contributions are welcome! Please open issues and submit pull requests for bug f
 
 ## Author
 
-**Kavya Prajapati**  
+**Kavya Prajapati** 
+
 📧 [kavya31052005@gmail.com](mailto:kavya31052005@gmail.com)
 
 **Aarya Shah**
+
 📧 [shahaarya465@gmail.com](mailto:shahaarya465@gmail.com)
