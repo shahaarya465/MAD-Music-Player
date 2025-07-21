@@ -87,3 +87,5 @@ Contributions are welcome! Please open issues and submit pull requests for bug f
 **Aarya Shah**
 
 📧 [shahaarya465@gmail.com](mailto:shahaarya465@gmail.com)
+
+Thank you for contributions.
