@@ -21,7 +21,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     super.initState();
 
     _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) { // Check if the widget is still in the tree
+      if (mounted) {
         setState(() {
           _isPlaying = state == PlayerState.playing;
         });
@@ -98,9 +98,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Flutter Music Player'),
-      ),
+      appBar: AppBar(title: const Text('Flutter Music Player')),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -117,8 +115,13 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             const SizedBox(height: 20),
             Slider(
               min: 0,
-              max: _duration.inSeconds.toDouble() > 0 ? _duration.inSeconds.toDouble() : 0.0,
-              value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
+              max: _duration.inSeconds.toDouble() > 0
+                  ? _duration.inSeconds.toDouble()
+                  : 0.0,
+              value: _position.inSeconds.toDouble().clamp(
+                0.0,
+                _duration.inSeconds.toDouble(),
+              ),
               onChanged: (value) async {
                 final newPosition = Duration(seconds: value.toInt());
                 if (mounted) {
