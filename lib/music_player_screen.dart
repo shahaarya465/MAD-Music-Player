@@ -21,21 +21,27 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     super.initState();
 
     _audioPlayer.onPlayerStateChanged.listen((state) {
-      setState(() {
-        _isPlaying = state == PlayerState.playing;
-      });
+      if (mounted) { // Check if the widget is still in the tree
+        setState(() {
+          _isPlaying = state == PlayerState.playing;
+        });
+      }
     });
 
     _audioPlayer.onDurationChanged.listen((newDuration) {
-      setState(() {
-        _duration = newDuration;
-      });
+      if (mounted) {
+        setState(() {
+          _duration = newDuration;
+        });
+      }
     });
 
     _audioPlayer.onPositionChanged.listen((newPosition) {
-      setState(() {
-        _position = newPosition;
-      });
+      if (mounted) {
+        setState(() {
+          _position = newPosition;
+        });
+      }
     });
   }
 
@@ -51,9 +57,17 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     );
 
     if (result != null) {
-      setState(() {
-        _filePath = result.files.single.path;
-      });
+      if (mounted) {
+        setState(() {
+          _filePath = result.files.single.path;
+        });
+      }
+      await _audioPlayer.stop();
+      if (mounted) {
+        setState(() {
+          _position = Duration.zero; // Reset position for the new file
+        });
+      }
       _play();
     }
   }
@@ -61,6 +75,12 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   Future<void> _play() async {
     if (_filePath != null) {
       await _audioPlayer.play(DeviceFileSource(_filePath!));
+    }
+  }
+
+  Future<void> _resume() async {
+    if (_filePath != null) {
+      await _audioPlayer.resume();
     }
   }
 
@@ -97,12 +117,16 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             const SizedBox(height: 20),
             Slider(
               min: 0,
-              max: _duration.inSeconds.toDouble(),
-              value: _position.inSeconds.toDouble(),
+              max: _duration.inSeconds.toDouble() > 0 ? _duration.inSeconds.toDouble() : 0.0,
+              value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
               onChanged: (value) async {
-                final position = Duration(seconds: value.toInt());
-                await _audioPlayer.seek(position);
-                await _play();
+                final newPosition = Duration(seconds: value.toInt());
+                if (mounted) {
+                  setState(() {
+                    _position = newPosition;
+                  });
+                }
+                await _audioPlayer.seek(newPosition);
               },
             ),
             Padding(
@@ -121,7 +145,17 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                 IconButton(
                   icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
                   iconSize: 64.0,
-                  onPressed: _isPlaying ? _pause : _play,
+                  onPressed: () {
+                    if (_isPlaying) {
+                      _pause();
+                    } else {
+                      if (_filePath == null) {
+                        _pickFile();
+                      } else {
+                        _resume();
+                      }
+                    }
+                  },
                 ),
               ],
             ),
