@@ -98,73 +98,135 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Flutter Music Player'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        title: const Text('Flutter Music Player', style: TextStyle(fontWeight: FontWeight.bold)),
+        centerTitle: true,
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            if (_filePath != null)
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  'Now Playing: ${_filePath!.split('/').last}',
-                  style: const TextStyle(fontSize: 16),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            const SizedBox(height: 20),
-            Slider(
-              min: 0,
-              max: _duration.inSeconds.toDouble() > 0 ? _duration.inSeconds.toDouble() : 0.0,
-              value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
-              onChanged: (value) async {
-                final newPosition = Duration(seconds: value.toInt());
-                if (mounted) {
-                  setState(() {
-                    _position = newPosition;
-                  });
-                }
-                await _audioPlayer.seek(newPosition);
-              },
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(_formatDuration(_position)),
-                  Text(_formatDuration(_duration - _position)),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF6D5DF6), Color(0xFF38B6FF)],
+          ),
+        ),
+        child: Center(
+          child: Card(
+            elevation: 10,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+            color: Colors.white.withOpacity(0.95),
+            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  if (_filePath != null)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'Now Playing:\n${_filePath!.split('/').last}',
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  if (_filePath == null)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'No file selected',
+                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  Slider(
+                    min: 0,
+                    max: _duration.inSeconds.toDouble() > 0 ? _duration.inSeconds.toDouble() : 0.0,
+                    value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
+                    activeColor: Color(0xFF6D5DF6),
+                    inactiveColor: Color(0xFFB2A9F7),
+                    onChanged: (value) async {
+                      final newPosition = Duration(seconds: value.toInt());
+                      if (mounted) {
+                        setState(() {
+                          _position = newPosition;
+                        });
+                      }
+                      await _audioPlayer.seek(newPosition);
+                    },
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_formatDuration(_position), style: const TextStyle(fontWeight: FontWeight.w500)),
+                        Text(_formatDuration(_duration - _position), style: const TextStyle(fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 12,
+                              offset: Offset(0, 6),
+                            ),
+                          ],
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6D5DF6), Color(0xFF38B6FF)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: IconButton(
+                          icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
+                          color: Colors.white,
+                          iconSize: 64.0,
+                          onPressed: () {
+                            if (_isPlaying) {
+                              _pause();
+                            } else {
+                              if (_filePath == null) {
+                                _pickFile();
+                              } else {
+                                _resume();
+                              }
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6D5DF6),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      elevation: 4,
+                    ),
+                    onPressed: _pickFile,
+                    icon: const Icon(Icons.library_music_rounded),
+                    label: const Text('Pick an Audio File'),
+                  ),
                 ],
               ),
             ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  icon: Icon(_isPlaying ? Icons.pause : Icons.play_arrow),
-                  iconSize: 64.0,
-                  onPressed: () {
-                    if (_isPlaying) {
-                      _pause();
-                    } else {
-                      if (_filePath == null) {
-                        _pickFile();
-                      } else {
-                        _resume();
-                      }
-                    }
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _pickFile,
-              child: const Text('Pick an Audio File'),
-            ),
-          ],
+          ),
         ),
       ),
     );
