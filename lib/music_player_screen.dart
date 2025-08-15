@@ -5,6 +5,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_media_metadata/flutter_media_metadata.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'song_list_widget.dart';
 import 'mini_player.dart';
@@ -29,6 +30,9 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   void initState() {
     super.initState();
 
+    // NEW: Load the saved playlist when the app starts
+    _loadPlaylist();
+
     _audioPlayer.onPlayerStateChanged.listen((state) {
       if (mounted) {
         setState(() {
@@ -52,6 +56,32 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         });
       }
     });
+  }
+
+  // NEW: Function to save the current playlist and index
+  Future<void> _savePlaylist() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('song_paths', _songPaths);
+    await prefs.setStringList('song_titles', _songTitles);
+    await prefs.setInt('last_index', _currentSongIndex ?? -1);
+  }
+
+  // NEW: Function to load the saved playlist and index
+  Future<void> _loadPlaylist() async {
+    final prefs = await SharedPreferences.getInstance();
+    final paths = prefs.getStringList('song_paths');
+    final titles = prefs.getStringList('song_titles');
+    final lastIndex = prefs.getInt('last_index');
+
+    if (paths != null && titles != null) {
+      setState(() {
+        _songPaths = paths;
+        _songTitles = titles;
+        _currentSongIndex = (lastIndex != null && lastIndex != -1)
+            ? lastIndex
+            : null;
+      });
+    }
   }
 
   @override
@@ -101,6 +131,8 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             _play(_currentSongIndex!);
           }
         });
+        // NEW: Save after adding new songs
+        _savePlaylist();
       }
     }
   }
@@ -112,6 +144,8 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         setState(() {
           _currentSongIndex = index;
         });
+        // NEW: Save the new index when a song starts playing
+        _savePlaylist();
       }
     }
   }
@@ -188,7 +222,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         foregroundColor: const Color(0xFF6D5DF6),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      bottomNavigationBar: _currentSongIndex != null
+      bottomNavigationBar: _currentSongIndex != null && _songTitles.isNotEmpty
           ? MiniPlayer(
               songTitle: _songTitles[_currentSongIndex!],
               isPlaying: _isPlaying,
@@ -201,8 +235,8 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                   _resume();
                 }
               },
-              onPrevious: _playPrevious, // <-- ARGUMENT ADDED
-              onNext: _playNext, // <-- ARGUMENT ADDED
+              onPrevious: _playPrevious,
+              onNext: _playNext,
               onSeekBackward: _seekBackward,
               onSeekForward: _seekForward,
               onSeek: (value) {
@@ -246,11 +280,15 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                   _currentSongIndex = _currentSongIndex! - 1;
                 }
               });
+              // NEW: Save after removing a song
+              _savePlaylist();
             },
             onRename: (index, newName) {
               setState(() {
                 _songTitles[index] = newName;
               });
+              // NEW: Save after renaming a song
+              _savePlaylist();
             },
           ),
         ),
