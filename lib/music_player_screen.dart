@@ -1,10 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
-import 'song_list_widget.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_media_metadata/flutter_media_metadata.dart';
-import 'dart:io';
+
+import 'song_list_widget.dart';
+import 'mini_player.dart';
 
 class MusicPlayerScreen extends StatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -27,7 +30,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     super.initState();
 
     _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) { // Check if the widget is still in the tree
+      if (mounted) {
         setState(() {
           _isPlaying = state == PlayerState.playing;
         });
@@ -65,21 +68,25 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
     if (result != null && result.files.isNotEmpty) {
       List<String> selectedPaths = result.files.map((f) => f.path!).toList();
-      List<String> newPaths = selectedPaths.where((p) => !_songPaths.contains(p)).toList();
+      List<String> newPaths = selectedPaths
+          .where((p) => !_songPaths.contains(p))
+          .toList();
       List<String> newTitles = [];
       for (final path in newPaths) {
         String title = p.basename(path);
         try {
           final metadata = await MetadataRetriever.fromFile(File(path));
-          if (metadata.trackName != null && metadata.trackName!.trim().isNotEmpty) {
+          if (metadata.trackName != null &&
+              metadata.trackName!.trim().isNotEmpty) {
             title = metadata.trackName!;
           }
         } catch (e) {
           // ignore and use filename
         }
-        // If title is missing, empty, or looks like a UUID, use filename without extension
         final uuidRegex = RegExp(r'^[0-9a-fA-F\-]{32,}$');
-        final isUuid = uuidRegex.hasMatch(title.replaceAll('.', '').replaceAll('-', ''));
+        final isUuid = uuidRegex.hasMatch(
+          title.replaceAll('.', '').replaceAll('-', ''),
+        );
         if (title.trim().isEmpty || isUuid) {
           title = p.basenameWithoutExtension(path);
         }
@@ -91,17 +98,9 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
           _songTitles.addAll(newTitles);
           if (_currentSongIndex == null && _songPaths.isNotEmpty) {
             _currentSongIndex = 0;
+            _play(_currentSongIndex!);
           }
         });
-      }
-      if (_currentSongIndex != null) {
-        await _audioPlayer.stop();
-        if (mounted) {
-          setState(() {
-            _position = Duration.zero;
-          });
-        }
-        _play(_currentSongIndex!);
       }
     }
   }
@@ -127,6 +126,40 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     await _audioPlayer.pause();
   }
 
+  Future<void> _playNext() async {
+    if (_currentSongIndex != null) {
+      int nextIndex = _currentSongIndex! + 1;
+      if (nextIndex >= _songPaths.length) {
+        nextIndex = 0;
+      }
+      await _play(nextIndex);
+    }
+  }
+
+  Future<void> _playPrevious() async {
+    if (_currentSongIndex != null) {
+      int prevIndex = _currentSongIndex! - 1;
+      if (prevIndex < 0) {
+        prevIndex = _songPaths.length - 1;
+      }
+      await _play(prevIndex);
+    }
+  }
+
+  void _seekForward() {
+    if (_duration == Duration.zero) return;
+    final newPosition = _position + const Duration(seconds: 10);
+    _audioPlayer.seek(newPosition > _duration ? _duration : newPosition);
+  }
+
+  void _seekBackward() {
+    if (_duration == Duration.zero) return;
+    final newPosition = _position - const Duration(seconds: 10);
+    _audioPlayer.seek(
+      newPosition < Duration.zero ? Duration.zero : newPosition,
+    );
+  }
+
   String _formatDuration(Duration duration) {
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
@@ -141,9 +174,43 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text('Flutter Music Player', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'MAD Music Player',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
         centerTitle: true,
       ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _pickFile,
+        label: const Text('Import Songs'),
+        icon: const Icon(Icons.library_music_rounded),
+        backgroundColor: Colors.white,
+        foregroundColor: const Color(0xFF6D5DF6),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      bottomNavigationBar: _currentSongIndex != null
+          ? MiniPlayer(
+              songTitle: _songTitles[_currentSongIndex!],
+              isPlaying: _isPlaying,
+              position: _position,
+              duration: _duration,
+              onPlayPause: () {
+                if (_isPlaying) {
+                  _pause();
+                } else {
+                  _resume();
+                }
+              },
+              onPrevious: _playPrevious, // <-- ARGUMENT ADDED
+              onNext: _playNext, // <-- ARGUMENT ADDED
+              onSeekBackward: _seekBackward,
+              onSeekForward: _seekForward,
+              onSeek: (value) {
+                final newPosition = Duration(seconds: value.toInt());
+                _audioPlayer.seek(newPosition);
+              },
+            )
+          : null,
       body: Container(
         width: double.infinity,
         height: double.infinity,
@@ -154,150 +221,37 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             colors: [Color(0xFF6D5DF6), Color(0xFF38B6FF)],
           ),
         ),
-        child: Center(
-          child: Card(
-            elevation: 10,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
-            color: Colors.white.withOpacity(0.95),
-            margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  SongListWidget(
-                    songPaths: _songPaths,
-                    songTitles: _songTitles,
-                    currentSongIndex: _currentSongIndex,
-                    onSongTap: (index) async {
-                      await _audioPlayer.stop();
-                      setState(() {
-                        _position = Duration.zero;
-                      });
-                      _play(index);
-                    },
-                    onRemove: (index) async {
-                      bool isCurrent = index == _currentSongIndex;
-                      setState(() {
-                        _songPaths.removeAt(index);
-                        _songTitles.removeAt(index);
-                        if (_songPaths.isEmpty) {
-                          _currentSongIndex = null;
-                        } else if (isCurrent) {
-                          _currentSongIndex = 0;
-                        } else if (_currentSongIndex != null && index < _currentSongIndex!) {
-                          _currentSongIndex = _currentSongIndex! - 1;
-                        }
-                      });
-                      if (isCurrent) {
-                        await _audioPlayer.stop();
-                        setState(() {
-                          _position = Duration.zero;
-                        });
-                        if (_songPaths.isNotEmpty) {
-                          _play(_currentSongIndex!);
-                        }
-                      }
-                    },
-                    onRename: (index, newName) {
-                      setState(() {
-                        _songTitles[index] = newName;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  if (_currentSongIndex != null && _songTitles.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        'Now Playing:\n${_songTitles[_currentSongIndex!]}',
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  const SizedBox(height: 24),
-                  Slider(
-                    min: 0,
-                    max: _duration.inSeconds.toDouble() > 0 ? _duration.inSeconds.toDouble() : 0.0,
-                    value: _position.inSeconds.toDouble().clamp(0.0, _duration.inSeconds.toDouble()),
-                    activeColor: Color(0xFF6D5DF6),
-                    inactiveColor: Color(0xFFB2A9F7),
-                    onChanged: (value) async {
-                      final newPosition = Duration(seconds: value.toInt());
-                      if (mounted) {
-                        setState(() {
-                          _position = newPosition;
-                        });
-                      }
-                      await _audioPlayer.seek(newPosition);
-                    },
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(_formatDuration(_position), style: const TextStyle(fontWeight: FontWeight.w500)),
-                        Text(_formatDuration(_duration - _position), style: const TextStyle(fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 12,
-                              offset: Offset(0, 6),
-                            ),
-                          ],
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF6D5DF6), Color(0xFF38B6FF)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: IconButton(
-                          icon: Icon(_isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded),
-                          color: Colors.white,
-                          iconSize: 64.0,
-                          onPressed: () {
-                            if (_isPlaying) {
-                              _pause();
-                            } else {
-                              if (_currentSongIndex == null) {
-                                _pickFile();
-                              } else {
-                                _resume();
-                              }
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 32),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF6D5DF6),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      elevation: 4,
-                    ),
-                    onPressed: _pickFile,
-                    icon: const Icon(Icons.library_music_rounded),
-                    label: const Text('Import Songs'),
-                  ),
-                ],
-              ),
-            ),
+        child: SafeArea(
+          child: SongListWidget(
+            songPaths: _songPaths,
+            songTitles: _songTitles,
+            currentSongIndex: _currentSongIndex,
+            onSongTap: (index) {
+              _play(index);
+            },
+            onRemove: (index) async {
+              bool isCurrent = index == _currentSongIndex;
+              setState(() {
+                _songPaths.removeAt(index);
+                _songTitles.removeAt(index);
+
+                if (_songPaths.isEmpty) {
+                  _currentSongIndex = null;
+                  _audioPlayer.stop();
+                } else if (isCurrent) {
+                  _currentSongIndex = index % _songPaths.length;
+                  _play(_currentSongIndex!);
+                } else if (_currentSongIndex != null &&
+                    index < _currentSongIndex!) {
+                  _currentSongIndex = _currentSongIndex! - 1;
+                }
+              });
+            },
+            onRename: (index, newName) {
+              setState(() {
+                _songTitles[index] = newName;
+              });
+            },
           ),
         ),
       ),

@@ -41,13 +41,13 @@ A cross-platform music player app built with Flutter. This app allows users to p
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/KavyaJP/music-player-app.git
+   git clone https://github.com/shahaarya465/MAD-Music-Player.git
    ```
 
 2. Navigate to the project directory:
 
    ```bash
-   cd music-player-app
+   cd MAD-Music-Player
    ```
 
 3. Install dependencies:

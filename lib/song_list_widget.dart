@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 
 class SongListWidget extends StatelessWidget {
   final List<String> songPaths;
@@ -24,31 +23,62 @@ class SongListWidget extends StatelessWidget {
     if (songPaths.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(8.0),
-        child: Text(
-          'No songs imported',
-          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+        child: Center(
+          child: Text(
+            'No songs imported. Tap button below to start!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.white.withOpacity(0.8),
+            ),
+          ),
         ),
       );
     }
     return Column(
       children: [
-        const Text('Song List:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-        SizedBox(
-          height: 120,
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 8.0),
+          child: Text(
+            'Song List:',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Colors.white,
+            ),
+          ),
+        ),
+        Expanded(
           child: ListView.builder(
-            shrinkWrap: true,
             itemCount: songPaths.length,
             itemBuilder: (context, index) {
               final isSelected = index == currentSongIndex;
               return ListTile(
                 title: Row(
                   children: [
-                    Expanded(child: Text(songTitles[index])),
+                    Expanded(
+                      child: Text(
+                        songTitles[index],
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ),
                     IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blueAccent, size: 20),
+                      // UPDATED: Icon color changed to black
+                      icon: const Icon(
+                        Icons.edit,
+                        color: Colors.black,
+                        size: 20,
+                      ),
                       tooltip: 'Rename',
                       onPressed: () async {
-                        final controller = TextEditingController(text: songTitles[index]);
+                        final controller = TextEditingController(
+                          text: songTitles[index],
+                        );
                         final newName = await showDialog<String>(
                           context: context,
                           builder: (context) => AlertDialog(
@@ -56,7 +86,9 @@ class SongListWidget extends StatelessWidget {
                             content: TextField(
                               controller: controller,
                               autofocus: true,
-                              decoration: const InputDecoration(hintText: 'Enter new name'),
+                              decoration: const InputDecoration(
+                                hintText: 'Enter new name',
+                              ),
                             ),
                             actions: [
                               TextButton(
@@ -64,23 +96,33 @@ class SongListWidget extends StatelessWidget {
                                 child: const Text('Cancel'),
                               ),
                               TextButton(
-                                onPressed: () => Navigator.pop(context, controller.text.trim()),
+                                onPressed: () => Navigator.pop(
+                                  context,
+                                  controller.text.trim(),
+                                ),
                                 child: const Text('Save'),
                               ),
                             ],
                           ),
                         );
-                        if (newName != null && newName.isNotEmpty && newName != songTitles[index]) {
+                        if (newName != null &&
+                            newName.isNotEmpty &&
+                            newName != songTitles[index]) {
                           onRename(index, newName);
                         }
                       },
                     ),
                   ],
                 ),
-                leading: Icon(isSelected ? Icons.music_note : Icons.audiotrack, color: isSelected ? Color(0xFF6D5DF6) : Colors.grey),
+                leading: Icon(
+                  isSelected ? Icons.music_note : Icons.audiotrack,
+                  color: Colors.white,
+                ),
                 selected: isSelected,
+                selectedTileColor: Colors.white.withOpacity(0.2),
                 onTap: () => onSongTap(index),
                 trailing: IconButton(
+                  // UPDATED: Icon color changed back to red
                   icon: const Icon(Icons.delete, color: Colors.redAccent),
                   onPressed: () => onRemove(index),
                   tooltip: 'Remove',
