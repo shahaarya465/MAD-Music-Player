@@ -20,6 +20,9 @@ class SongListWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the current theme's color for text and icons
+    final onSurfaceColor = Theme.of(context).colorScheme.onSurface;
+
     if (songPaths.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(8.0),
@@ -68,12 +71,8 @@ class SongListWidget extends StatelessWidget {
                       ),
                     ),
                     IconButton(
-                      // UPDATED: Icon color changed to black
-                      icon: const Icon(
-                        Icons.edit,
-                        color: Colors.black,
-                        size: 20,
-                      ),
+                      // UPDATED: Color is now theme-aware
+                      icon: Icon(Icons.edit, color: onSurfaceColor, size: 20),
                       tooltip: 'Rename',
                       onPressed: () async {
                         final controller = TextEditingController(
@@ -122,7 +121,6 @@ class SongListWidget extends StatelessWidget {
                 selectedTileColor: Colors.white.withOpacity(0.2),
                 onTap: () => onSongTap(index),
                 trailing: IconButton(
-                  // UPDATED: Icon color changed back to red
                   icon: const Icon(Icons.delete, color: Colors.redAccent),
                   onPressed: () => onRemove(index),
                   tooltip: 'Remove',

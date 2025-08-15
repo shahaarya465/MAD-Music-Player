@@ -6,9 +6,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:flutter_media_metadata/flutter_media_metadata.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 
 import 'song_list_widget.dart';
 import 'mini_player.dart';
+import 'theme_manager.dart';
 
 class MusicPlayerScreen extends StatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -29,10 +31,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   @override
   void initState() {
     super.initState();
-
-    // NEW: Load the saved playlist when the app starts
     _loadPlaylist();
-
     _audioPlayer.onPlayerStateChanged.listen((state) {
       if (mounted) {
         setState(() {
@@ -40,7 +39,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         });
       }
     });
-
     _audioPlayer.onDurationChanged.listen((newDuration) {
       if (mounted) {
         setState(() {
@@ -48,7 +46,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         });
       }
     });
-
     _audioPlayer.onPositionChanged.listen((newPosition) {
       if (mounted) {
         setState(() {
@@ -58,7 +55,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     });
   }
 
-  // NEW: Function to save the current playlist and index
   Future<void> _savePlaylist() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('song_paths', _songPaths);
@@ -66,13 +62,11 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
     await prefs.setInt('last_index', _currentSongIndex ?? -1);
   }
 
-  // NEW: Function to load the saved playlist and index
   Future<void> _loadPlaylist() async {
     final prefs = await SharedPreferences.getInstance();
     final paths = prefs.getStringList('song_paths');
     final titles = prefs.getStringList('song_titles');
     final lastIndex = prefs.getInt('last_index');
-
     if (paths != null && titles != null) {
       setState(() {
         _songPaths = paths;
@@ -95,7 +89,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       type: FileType.audio,
       allowMultiple: true,
     );
-
     if (result != null && result.files.isNotEmpty) {
       List<String> selectedPaths = result.files.map((f) => f.path!).toList();
       List<String> newPaths = selectedPaths
@@ -131,7 +124,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             _play(_currentSongIndex!);
           }
         });
-        // NEW: Save after adding new songs
         _savePlaylist();
       }
     }
@@ -144,7 +136,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         setState(() {
           _currentSongIndex = index;
         });
-        // NEW: Save the new index when a song starts playing
         _savePlaylist();
       }
     }
@@ -203,23 +194,36 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // NEW: Get the ThemeManager from the provider
+    final themeManager = Provider.of<ThemeManager>(context);
+
+    // NEW: Define gradients for light and dark mode
+    final lightGradient = [const Color(0xFF6D5DF6), const Color(0xFF38B6FF)];
+    final darkGradient = [const Color(0xFF232A4E), const Color(0xFF171925)];
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'MAD Music Player',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
+        title: const Text('MAD Music Player'),
         centerTitle: true,
+        actions: [
+          // NEW: Theme toggle button
+          IconButton(
+            icon: Icon(
+              themeManager.themeMode == ThemeMode.dark
+                  ? Icons.light_mode_rounded
+                  : Icons.dark_mode_rounded,
+            ),
+            onPressed: () {
+              themeManager.toggleTheme();
+            },
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _pickFile,
         label: const Text('Import Songs'),
         icon: const Icon(Icons.library_music_rounded),
-        backgroundColor: Colors.white,
-        foregroundColor: const Color(0xFF6D5DF6),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: _currentSongIndex != null && _songTitles.isNotEmpty
@@ -248,11 +252,14 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
+          // NEW: Dynamically change gradient based on theme
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF6D5DF6), Color(0xFF38B6FF)],
+            colors: themeManager.themeMode == ThemeMode.dark
+                ? darkGradient
+                : lightGradient,
           ),
         ),
         child: SafeArea(
@@ -268,7 +275,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
               setState(() {
                 _songPaths.removeAt(index);
                 _songTitles.removeAt(index);
-
                 if (_songPaths.isEmpty) {
                   _currentSongIndex = null;
                   _audioPlayer.stop();
@@ -280,14 +286,12 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                   _currentSongIndex = _currentSongIndex! - 1;
                 }
               });
-              // NEW: Save after removing a song
               _savePlaylist();
             },
             onRename: (index, newName) {
               setState(() {
                 _songTitles[index] = newName;
               });
-              // NEW: Save after renaming a song
               _savePlaylist();
             },
           ),

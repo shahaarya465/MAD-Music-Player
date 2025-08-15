@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
-import 'music_player_screen.dart'; // Import the new screen file
+import 'package:provider/provider.dart';
+import 'music_player_screen.dart';
+import 'theme.dart';
+import 'theme_manager.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(create: (_) => ThemeManager(), child: const MyApp()),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -10,13 +15,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'MAD Music Player',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      home: const MusicPlayerScreen(), // This now refers to the imported widget
+    // Consumer widget listens to ThemeManager changes
+    return Consumer<ThemeManager>(
+      builder: (context, themeManager, child) {
+        return MaterialApp(
+          title: 'MAD Music Player',
+          theme: AppThemes.lightTheme, // Set the light theme
+          darkTheme: AppThemes.darkTheme, // Set the dark theme
+          themeMode: themeManager.themeMode, // Control which theme is active
+          home: const MusicPlayerScreen(),
+        );
+      },
     );
   }
 }

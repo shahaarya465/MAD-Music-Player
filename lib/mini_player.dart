@@ -8,7 +8,6 @@ class MiniPlayer extends StatelessWidget {
   final VoidCallback onPlayPause;
   final VoidCallback onSeekForward;
   final VoidCallback onSeekBackward;
-  // We need to add these back
   final VoidCallback onNext;
   final VoidCallback onPrevious;
   final ValueChanged<double> onSeek;
@@ -22,16 +21,22 @@ class MiniPlayer extends StatelessWidget {
     required this.onPlayPause,
     required this.onSeekForward,
     required this.onSeekBackward,
-    required this.onNext, // Added back
-    required this.onPrevious, // Added back
+    required this.onNext,
+    required this.onPrevious,
     required this.onSeek,
   });
 
   @override
   Widget build(BuildContext context) {
+    // Get colors from the current theme to work in both light and dark mode
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final onSurfaceColor = theme.colorScheme.onSurface;
+    final backgroundColor = theme.cardColor.withOpacity(0.95);
+
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
+        color: backgroundColor,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(20),
           topRight: Radius.circular(20),
@@ -45,35 +50,11 @@ class MiniPlayer extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Row for Title and Slider
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.music_note_rounded,
-                    color: Color(0xFF6D5DF6),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      songTitle,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Slider
+            // Row 1: The interactive slider
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
                 thumbShape: const RoundSliderThumbShape(
@@ -83,6 +64,9 @@ class MiniPlayer extends StatelessWidget {
                   overlayRadius: 12.0,
                 ),
                 trackHeight: 2.0,
+                activeTrackColor: primaryColor,
+                inactiveTrackColor: primaryColor.withOpacity(0.3),
+                thumbColor: primaryColor,
               ),
               child: Slider(
                 min: 0,
@@ -93,45 +77,57 @@ class MiniPlayer extends StatelessWidget {
                   0.0,
                   duration.inSeconds.toDouble(),
                 ),
-                activeColor: const Color(0xFF6D5DF6),
-                inactiveColor: const Color(0xFFB2A9F7),
                 onChanged: onSeek,
               ),
             ),
-            // UPDATED: Row with all 5 control buttons
+            // Row 2: Song Title on the left, Buttons on the right
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
+                Expanded(
+                  child: Text(
+                    songTitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: onSurfaceColor, // Theme-aware color
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+                // Buttons are grouped to the right
                 IconButton(
-                  icon: const Icon(Icons.skip_previous_rounded),
+                  icon: Icon(
+                    Icons.skip_previous_rounded,
+                    color: onSurfaceColor,
+                  ),
                   onPressed: onPrevious,
-                  iconSize: 32,
+                  iconSize: 28,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.replay_10_rounded),
+                  icon: Icon(Icons.replay_10_rounded, color: onSurfaceColor),
                   onPressed: onSeekBackward,
-                  iconSize: 32,
+                  iconSize: 28,
                 ),
                 IconButton(
                   icon: Icon(
                     isPlaying
                         ? Icons.pause_circle_filled_rounded
                         : Icons.play_circle_filled_rounded,
+                    color: primaryColor,
                   ),
                   onPressed: onPlayPause,
-                  iconSize:
-                      50, // Made this slightly larger as it's the main button
-                  color: const Color(0xFF6D5DF6),
+                  iconSize: 42,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.forward_10_rounded),
+                  icon: Icon(Icons.forward_10_rounded, color: onSurfaceColor),
                   onPressed: onSeekForward,
-                  iconSize: 32,
+                  iconSize: 28,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.skip_next_rounded),
+                  icon: Icon(Icons.skip_next_rounded, color: onSurfaceColor),
                   onPressed: onNext,
-                  iconSize: 32,
+                  iconSize: 28,
                 ),
               ],
             ),
