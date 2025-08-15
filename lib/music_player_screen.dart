@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:file_picker/file_picker.dart';
+import 'song_list_widget.dart';
+import 'package:path/path.dart' as p;
+import 'package:flutter_media_metadata/flutter_media_metadata.dart';
+import 'dart:io';
 
 class MusicPlayerScreen extends StatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -14,7 +18,9 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   bool _isPlaying = false;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
-  String? _filePath;
+  List<String> _songPaths = [];
+  List<String> _songTitles = [];
+  int? _currentSongIndex;
 
   @override
   void initState() {
@@ -54,32 +60,65 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
+      allowMultiple: true,
     );
 
-    if (result != null) {
+    if (result != null && result.files.isNotEmpty) {
+      List<String> selectedPaths = result.files.map((f) => f.path!).toList();
+      List<String> newPaths = selectedPaths.where((p) => !_songPaths.contains(p)).toList();
+      List<String> newTitles = [];
+      for (final path in newPaths) {
+        String title = p.basename(path);
+        try {
+          final metadata = await MetadataRetriever.fromFile(File(path));
+          if (metadata.trackName != null && metadata.trackName!.trim().isNotEmpty) {
+            title = metadata.trackName!;
+          }
+        } catch (e) {
+          // ignore and use filename
+        }
+        // If title is missing, empty, or looks like a UUID, use filename without extension
+        final uuidRegex = RegExp(r'^[0-9a-fA-F\-]{32,}$');
+        final isUuid = uuidRegex.hasMatch(title.replaceAll('.', '').replaceAll('-', ''));
+        if (title.trim().isEmpty || isUuid) {
+          title = p.basenameWithoutExtension(path);
+        }
+        newTitles.add(title);
+      }
       if (mounted) {
         setState(() {
-          _filePath = result.files.single.path;
+          _songPaths.addAll(newPaths);
+          _songTitles.addAll(newTitles);
+          if (_currentSongIndex == null && _songPaths.isNotEmpty) {
+            _currentSongIndex = 0;
+          }
         });
       }
-      await _audioPlayer.stop();
-      if (mounted) {
-        setState(() {
-          _position = Duration.zero; // Reset position for the new file
-        });
+      if (_currentSongIndex != null) {
+        await _audioPlayer.stop();
+        if (mounted) {
+          setState(() {
+            _position = Duration.zero;
+          });
+        }
+        _play(_currentSongIndex!);
       }
-      _play();
     }
   }
 
-  Future<void> _play() async {
-    if (_filePath != null) {
-      await _audioPlayer.play(DeviceFileSource(_filePath!));
+  Future<void> _play(int index) async {
+    if (index >= 0 && index < _songPaths.length) {
+      await _audioPlayer.play(DeviceFileSource(_songPaths[index]));
+      if (mounted) {
+        setState(() {
+          _currentSongIndex = index;
+        });
+      }
     }
   }
 
   Future<void> _resume() async {
-    if (_filePath != null) {
+    if (_currentSongIndex != null && _currentSongIndex! < _songPaths.length) {
       await _audioPlayer.resume();
     }
   }
@@ -126,21 +165,54 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
-                  if (_filePath != null)
+                  SongListWidget(
+                    songPaths: _songPaths,
+                    songTitles: _songTitles,
+                    currentSongIndex: _currentSongIndex,
+                    onSongTap: (index) async {
+                      await _audioPlayer.stop();
+                      setState(() {
+                        _position = Duration.zero;
+                      });
+                      _play(index);
+                    },
+                    onRemove: (index) async {
+                      bool isCurrent = index == _currentSongIndex;
+                      setState(() {
+                        _songPaths.removeAt(index);
+                        _songTitles.removeAt(index);
+                        if (_songPaths.isEmpty) {
+                          _currentSongIndex = null;
+                        } else if (isCurrent) {
+                          _currentSongIndex = 0;
+                        } else if (_currentSongIndex != null && index < _currentSongIndex!) {
+                          _currentSongIndex = _currentSongIndex! - 1;
+                        }
+                      });
+                      if (isCurrent) {
+                        await _audioPlayer.stop();
+                        setState(() {
+                          _position = Duration.zero;
+                        });
+                        if (_songPaths.isNotEmpty) {
+                          _play(_currentSongIndex!);
+                        }
+                      }
+                    },
+                    onRename: (index, newName) {
+                      setState(() {
+                        _songTitles[index] = newName;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  if (_currentSongIndex != null && _songTitles.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.all(8.0),
                       child: Text(
-                        'Now Playing:\n${_filePath!.split('/').last}',
+                        'Now Playing:\n${_songTitles[_currentSongIndex!]}',
                         style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
                         textAlign: TextAlign.center,
-                      ),
-                    ),
-                  if (_filePath == null)
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text(
-                        'No file selected',
-                        style: TextStyle(fontSize: 16, color: Colors.grey[600]),
                       ),
                     ),
                   const SizedBox(height: 24),
@@ -198,7 +270,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                             if (_isPlaying) {
                               _pause();
                             } else {
-                              if (_filePath == null) {
+                              if (_currentSongIndex == null) {
                                 _pickFile();
                               } else {
                                 _resume();
@@ -221,7 +293,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                     ),
                     onPressed: _pickFile,
                     icon: const Icon(Icons.library_music_rounded),
-                    label: const Text('Pick an Audio File'),
+                    label: const Text('Import Songs'),
                   ),
                 ],
               ),
