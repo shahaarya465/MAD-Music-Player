@@ -3,35 +3,22 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
+import 'playlist.dart';
 import 'theme_manager.dart';
+import 'player_manager.dart';
+import 'mini_player.dart';
 import 'playlist_detail_screen.dart';
 
-class Playlist {
-  final String name;
-  final List<String> songPaths;
-  final File file;
-
-  Playlist({required this.name, required this.songPaths, required this.file});
-
-  static Future<Playlist> fromFile(File file) async {
-    final content = await file.readAsString();
-    final json = jsonDecode(content);
-    return Playlist(
-      name: json['name'],
-      songPaths: List<String>.from(json['songPaths']),
-      file: file,
-    );
-  }
-}
-
-class MusicPlayerScreen extends StatefulWidget {
-  const MusicPlayerScreen({super.key});
+// RENAMED class
+class PlaylistBrowserScreen extends StatefulWidget {
+  const PlaylistBrowserScreen({super.key});
 
   @override
-  _MusicPlayerScreenState createState() => _MusicPlayerScreenState();
+  // RENAMED state class
+  _PlaylistBrowserScreenState createState() => _PlaylistBrowserScreenState();
 }
 
-class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
+class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
   bool _isGridView = false;
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
@@ -45,20 +32,16 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
   Future<void> _initDirectoriesAndLoadPlaylists() async {
     final documentsDir = await getApplicationDocumentsDirectory();
-
     final madMusicPlayerDir = Directory(
       '${documentsDir.path}/MAD Music Player',
     );
     if (!await madMusicPlayerDir.exists()) {
       await madMusicPlayerDir.create();
     }
-
     _playlistsDir = Directory('${madMusicPlayerDir.path}/Playlists');
     _songsDir = Directory('${madMusicPlayerDir.path}/Songs');
-
     if (!await _playlistsDir.exists()) await _playlistsDir.create();
     if (!await _songsDir.exists()) await _songsDir.create();
-
     final List<Playlist> loadedPlaylists = [];
     final entities = _playlistsDir.listSync();
     for (var entity in entities) {
@@ -66,7 +49,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         loadedPlaylists.add(await Playlist.fromFile(entity));
       }
     }
-
     setState(() {
       _playlists = loadedPlaylists;
     });
@@ -75,9 +57,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
   Future<void> _createPlaylist(String name) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return;
-
     final newPlaylistFile = File('${_playlistsDir.path}/$trimmedName.json');
-
     if (await newPlaylistFile.exists()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -88,10 +68,8 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
       }
       return;
     }
-
     final initialContent = {"name": trimmedName, "songPaths": []};
     await newPlaylistFile.writeAsString(jsonEncode(initialContent));
-
     await _initDirectoriesAndLoadPlaylists();
   }
 
@@ -134,8 +112,7 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Playlists'),
-        // ... (rest of AppBar is the same)
+        title: const Text('MAD Music Player'), // UPDATED title
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -158,6 +135,30 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
         onPressed: _showCreatePlaylistDialog,
         label: const Text('New Playlist'),
         icon: const Icon(Icons.add_rounded),
+      ),
+      bottomNavigationBar: Consumer<PlayerManager>(
+        builder: (context, playerManager, child) {
+          if (playerManager.currentSongTitle == null) {
+            return const SizedBox.shrink();
+          }
+          return MiniPlayer(
+            songTitle: playerManager.currentSongTitle!,
+            isPlaying: playerManager.isPlaying,
+            position: playerManager.position,
+            duration: playerManager.duration,
+            onPlayPause: () => playerManager.isPlaying
+                ? playerManager.pause()
+                : playerManager.resume(),
+            onPrevious: playerManager.playPrevious,
+            onNext: playerManager.playNext,
+            onSeek: (value) {
+              final newPosition = Duration(seconds: value.toInt());
+              playerManager.seek(newPosition);
+            },
+            onSeekBackward: playerManager.seekBackward10,
+            onSeekForward: playerManager.seekForward10,
+          );
+        },
       ),
       body: Container(
         width: double.infinity,
@@ -216,7 +217,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
               style: const TextStyle(color: Colors.white70),
             ),
             trailing: const Icon(Icons.more_vert, color: Colors.white70),
-            // UPDATED: onTap now navigates to the detail screen
             onTap: () async {
               await Navigator.push(
                 context,
@@ -225,7 +225,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                       PlaylistDetailScreen(playlist: playlist),
                 ),
               );
-              // After returning, reload playlists to reflect any changes in song count
               _initDirectoriesAndLoadPlaylists();
             },
           ),
@@ -251,7 +250,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
           child: InkWell(
-            // UPDATED: onTap now navigates to the detail screen
             onTap: () async {
               await Navigator.push(
                 context,
@@ -260,7 +258,6 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
                       PlaylistDetailScreen(playlist: playlist),
                 ),
               );
-              // After returning, reload playlists to reflect any changes in song count
               _initDirectoriesAndLoadPlaylists();
             },
             borderRadius: BorderRadius.circular(16),

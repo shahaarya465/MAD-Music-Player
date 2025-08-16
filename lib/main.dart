@@ -1,12 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'music_player_screen.dart';
+import 'playlist_browser_screen.dart';
 import 'theme.dart';
 import 'theme_manager.dart';
+import 'player_manager.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(create: (_) => ThemeManager(), child: const MyApp()),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeManager()),
+        ChangeNotifierProvider(create: (_) => PlayerManager()),
+      ],
+      child: const MyApp(),
+    ),
   );
 }
 
@@ -23,7 +30,7 @@ class MyApp extends StatelessWidget {
           theme: AppThemes.lightTheme, // Set the light theme
           darkTheme: AppThemes.darkTheme, // Set the dark theme
           themeMode: themeManager.themeMode, // Control which theme is active
-          home: const MusicPlayerScreen(),
+          home: const PlaylistBrowserScreen(),
         );
       },
     );

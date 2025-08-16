@@ -2,9 +2,12 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
-import 'music_player_screen.dart';
+import 'player_manager.dart';
+import 'mini_player.dart';
+import 'playlist.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final Playlist playlist;
@@ -85,6 +88,31 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         label: const Text("Add Songs"),
         icon: const Icon(Icons.add_rounded),
       ),
+      bottomNavigationBar: Consumer<PlayerManager>(
+        builder: (context, playerManager, child) {
+          if (playerManager.currentSongTitle == null) {
+            return const SizedBox.shrink();
+          }
+          return MiniPlayer(
+            songTitle: playerManager.currentSongTitle!,
+            isPlaying: playerManager.isPlaying,
+            position: playerManager.position,
+            duration: playerManager.duration,
+            onPlayPause: () => playerManager.isPlaying
+                ? playerManager.pause()
+                : playerManager.resume(),
+            onPrevious: playerManager.playPrevious,
+            onNext: playerManager.playNext,
+            // UPDATED: Corrected onSeek logic and hooked up seek buttons
+            onSeek: (value) {
+              final newPosition = Duration(seconds: value.toInt());
+              playerManager.seek(newPosition);
+            },
+            onSeekBackward: playerManager.seekBackward10,
+            onSeekForward: playerManager.seekForward10,
+          );
+        },
+      ),
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -98,7 +126,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         child: _songPaths.isEmpty
             ? const Center(
                 child: Text(
-                  "This playlist is empty.\nAdd songs to get started!",
+                  "This playlist is empty.\nAdd some songs to get started!",
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white70, fontSize: 18),
                 ),
@@ -108,6 +136,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 itemBuilder: (context, index) {
                   final songPath = _songPaths[index];
                   final songTitle = p.basenameWithoutExtension(songPath);
+                  final playerManager = Provider.of<PlayerManager>(
+                    context,
+                    listen: false,
+                  );
                   return ListTile(
                     leading: const Icon(Icons.music_note, color: Colors.white),
                     title: Text(
@@ -115,7 +147,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       style: const TextStyle(color: Colors.white),
                     ),
                     onTap: () {
-                      // TODO: Implement playback logic here
+                      playerManager.play(_songPaths, index);
                     },
                   );
                 },
