@@ -1,12 +1,13 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'playlist_detail_screen.dart'; // We need the Song class
 
 class AddSongsFromLibraryScreen extends StatefulWidget {
-  final Set<String> existingSongPaths;
+  final Set<String> existingSongIDs;
 
-  const AddSongsFromLibraryScreen({super.key, required this.existingSongPaths});
+  const AddSongsFromLibraryScreen({super.key, required this.existingSongIDs});
 
   @override
   _AddSongsFromLibraryScreenState createState() =>
@@ -14,8 +15,8 @@ class AddSongsFromLibraryScreen extends StatefulWidget {
 }
 
 class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
-  List<String> _allSongs = [];
-  Set<String> _selectedSongs = {};
+  List<Song> _allSongs = [];
+  Set<String> _selectedSongIDs = {};
 
   @override
   void initState() {
@@ -25,11 +26,21 @@ class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
 
   Future<void> _loadLibrarySongs() async {
     final documentsDir = await getApplicationDocumentsDirectory();
-    final songsDir = Directory('${documentsDir.path}/MAD Music Player/Songs');
-    if (await songsDir.exists()) {
-      final songFiles = songsDir.listSync().whereType<File>().toList();
+    final madMusicPlayerDir = Directory(
+      '${documentsDir.path}/MAD Music Player',
+    );
+    final libraryFile = File('${madMusicPlayerDir.path}/library.json');
+
+    if (await libraryFile.exists()) {
+      final libraryContent = jsonDecode(await libraryFile.readAsString());
+      final List<Song> songList = [];
+      libraryContent.forEach((id, details) {
+        songList.add(
+          Song(id: id, title: details['title'], path: details['path']),
+        );
+      });
       setState(() {
-        _allSongs = songFiles.map((f) => f.path).toList();
+        _allSongs = songList;
       });
     }
   }
@@ -41,9 +52,7 @@ class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
         title: const Text('Add from Library'),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(_selectedSongs);
-            },
+            onPressed: () => Navigator.of(context).pop(_selectedSongIDs),
             child: Text(
               'Done',
               style: TextStyle(
@@ -67,14 +76,13 @@ class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
         child: ListView.builder(
           itemCount: _allSongs.length,
           itemBuilder: (context, index) {
-            final songPath = _allSongs[index];
-            final songTitle = p.basenameWithoutExtension(songPath);
-            final alreadyExists = widget.existingSongPaths.contains(songPath);
-            final isSelected = _selectedSongs.contains(songPath);
+            final song = _allSongs[index];
+            final alreadyExists = widget.existingSongIDs.contains(song.id);
+            final isSelected = _selectedSongIDs.contains(song.id);
 
             return CheckboxListTile(
               title: Text(
-                songTitle,
+                song.title,
                 style: TextStyle(
                   color: alreadyExists ? Colors.grey : Colors.white,
                 ),
@@ -87,15 +95,14 @@ class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
                   : null,
               value: isSelected,
               activeColor: Theme.of(context).colorScheme.primary,
-              // Disable the checkbox if the song is already in the playlist
               onChanged: alreadyExists
                   ? null
                   : (bool? value) {
                       setState(() {
                         if (value == true) {
-                          _selectedSongs.add(songPath);
+                          _selectedSongIDs.add(song.id);
                         } else {
-                          _selectedSongs.remove(songPath);
+                          _selectedSongIDs.remove(song.id);
                         }
                       });
                     },

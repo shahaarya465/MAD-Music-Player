@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:uuid/uuid.dart';
 import 'playlist.dart';
 import 'theme_manager.dart';
 import 'player_manager.dart';
@@ -24,7 +25,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
   late Directory _songsDir;
-  List<String> _allSongPaths = []; // To hold all songs in the library
+  List<String> _allSongIDs = []; // To hold all song IDs in the library
 
   @override
   void initState() {
@@ -41,8 +42,11 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
 
     _playlistsDir = Directory('${madMusicPlayerDir.path}/Playlists');
     _songsDir = Directory('${madMusicPlayerDir.path}/Songs');
+    final libraryFile = File('${madMusicPlayerDir.path}/library.json');
+
     if (!await _playlistsDir.exists()) await _playlistsDir.create();
     if (!await _songsDir.exists()) await _songsDir.create();
+    if (!await libraryFile.exists()) await libraryFile.writeAsString('{}');
 
     // Load user-created playlists
     final List<Playlist> loadedPlaylists = [];
@@ -53,33 +57,54 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       }
     }
 
-    // Load all songs from the /Songs directory for the "All Songs" playlist
-    final songFiles = _songsDir.listSync().whereType<File>().toList();
+    // Load all song IDs from the library.json for the "All Songs" playlist
+    final libraryContent = jsonDecode(await libraryFile.readAsString());
 
     setState(() {
       _playlists = loadedPlaylists;
-      _allSongPaths = songFiles.map((f) => f.path).toList();
+      _allSongIDs = libraryContent.keys.toList().cast<String>();
     });
   }
 
-  // NEW: Function to import songs to the central /Songs library
   Future<void> _importSongsToLibrary() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
       allowMultiple: true,
     );
     if (result != null && result.files.isNotEmpty) {
+      final madMusicPlayerDir = Directory(
+        (await getApplicationDocumentsDirectory()).path + '/MAD Music Player',
+      );
+      final libraryFile = File('${madMusicPlayerDir.path}/library.json');
+
+      // THE FIX: Explicitly create a new, modifiable map from the JSON content.
+      final Map<String, dynamic> libraryContent = Map<String, dynamic>.from(
+        jsonDecode(await libraryFile.readAsString()),
+      );
+
       int importCount = 0;
+
       for (var file in result.files) {
         if (file.path != null) {
           final destPath = p.join(_songsDir.path, p.basename(file.path!));
+          // Check if the file already exists to avoid duplicates
           if (!await File(destPath).exists()) {
             await File(file.path!).copy(destPath);
+            const uuid = Uuid();
+            final songId = uuid.v4();
+            final songTitle = p.basenameWithoutExtension(destPath);
+            libraryContent[songId] = {'title': songTitle, 'path': destPath};
             importCount++;
           }
         }
       }
-      await _initAndLoad(); // Refresh everything
+
+      // Now, write the updated map back to the file
+      await libraryFile.writeAsString(jsonEncode(libraryContent));
+
+      // Refresh the UI to show the new counts
+      await _initAndLoad();
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -90,7 +115,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     }
   }
 
-  // ... _createPlaylist, _deletePlaylist, _renamePlaylist, and dialog methods remain the same ...
   Future<void> _createPlaylist(String name) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return;
@@ -105,7 +129,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       }
       return;
     }
-    final initialContent = {"name": trimmedName, "songPaths": []};
+    final initialContent = {"name": trimmedName, "songIDs": []};
     await newPlaylistFile.writeAsString(jsonEncode(initialContent));
     await _initAndLoad();
   }
@@ -130,10 +154,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       }
       return;
     }
-    final updatedContent = {
-      "name": trimmedName,
-      "songPaths": playlist.songPaths,
-    };
+    final updatedContent = {"name": trimmedName, "songIDs": playlist.songIDs};
     await playlist.file.rename(newFile.path);
     await newFile.writeAsString(jsonEncode(updatedContent));
 
@@ -235,11 +256,10 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     final themeManager = Provider.of<ThemeManager>(context);
     final isDarkMode = themeManager.themeMode == ThemeMode.dark;
 
-    // Create the "All Songs" playlist object on the fly
     final allSongsPlaylist = Playlist(
       name: "All Songs",
-      songPaths: _allSongPaths,
-      file: File(''), // Dummy file, not a real JSON
+      songIDs: _allSongIDs,
+      file: File(''),
     );
 
     return Scaffold(
@@ -249,7 +269,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          // NEW: "New Playlist" button moved to AppBar
           IconButton(
             icon: const Icon(Icons.create_new_folder_outlined),
             tooltip: 'New Playlist',
@@ -269,7 +288,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           ),
         ],
       ),
-      // UPDATED: FAB is now for importing songs to the library
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _importSongsToLibrary,
         label: const Text('Import Songs'),
@@ -347,7 +365,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               ),
             ),
             subtitle: Text(
-              '${playlist.songPaths.length} songs',
+              '${playlist.songIDs.length} songs',
               style: const TextStyle(color: Colors.white70),
             ),
             trailing: isAllSongs
@@ -447,7 +465,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                         ),
                       ),
                       Text(
-                        '${playlist.songPaths.length} songs',
+                        '${playlist.songIDs.length} songs',
                         style: const TextStyle(color: Colors.white70),
                       ),
                     ],
