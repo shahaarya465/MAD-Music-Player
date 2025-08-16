@@ -18,7 +18,7 @@ A cross-platform music player app built with Flutter. This app allows users to p
 
 - [ ] 🔍 Search songs
 - [ ] 📃 Song Queue system
-- [ ] ➕ Custom Playlists
+- [x] ➕ Custom Playlists
 - [ ] 🖼️ Album Art support
 
 ## Tech Stack

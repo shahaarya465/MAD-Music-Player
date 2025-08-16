@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
 
 class AppThemes {
+  static final List<Color> lightGradient = [
+    const Color(0xFF6D5DF6),
+    const Color(0xFF38B6FF),
+  ];
+  static final List<Color> darkGradient = [
+    const Color(0xFF36373B),
+    const Color(0xFF1E1F24),
+  ]; // Dark Charcoal Gradient
+
   static final ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
     primaryColor: const Color(0xFF6D5DF6),
@@ -12,9 +21,7 @@ class AppThemes {
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      // UPDATED: Icons are now black in light mode
       iconTheme: IconThemeData(color: Colors.black),
-      // UPDATED: Title text is now black in light mode
       titleTextStyle: TextStyle(
         fontWeight: FontWeight.bold,
         color: Colors.black,

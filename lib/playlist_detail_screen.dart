@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'player_manager.dart';
 import 'mini_player.dart';
 import 'playlist.dart';
+import 'theme.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final Playlist playlist;
@@ -77,6 +78,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final playerManager = Provider.of<PlayerManager>(context, listen: false);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.playlist.name),
@@ -103,7 +106,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 : playerManager.resume(),
             onPrevious: playerManager.playPrevious,
             onNext: playerManager.playNext,
-            // UPDATED: Corrected onSeek logic and hooked up seek buttons
             onSeek: (value) {
               final newPosition = Duration(seconds: value.toInt());
               playerManager.seek(newPosition);
@@ -118,9 +120,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
+            // UPDATED: Using colors from the theme file
             colors: Theme.of(context).brightness == Brightness.dark
-                ? [const Color(0xFF232A4E), const Color(0xFF171925)]
-                : [const Color(0xFF6D5DF6), const Color(0xFF38B6FF)],
+                ? AppThemes.darkGradient
+                : AppThemes.lightGradient,
           ),
         ),
         child: _songPaths.isEmpty
@@ -136,10 +139,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 itemBuilder: (context, index) {
                   final songPath = _songPaths[index];
                   final songTitle = p.basenameWithoutExtension(songPath);
-                  final playerManager = Provider.of<PlayerManager>(
-                    context,
-                    listen: false,
-                  );
                   return ListTile(
                     leading: const Icon(Icons.music_note, color: Colors.white),
                     title: Text(

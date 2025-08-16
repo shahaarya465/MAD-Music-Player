@@ -8,13 +8,12 @@ import 'theme_manager.dart';
 import 'player_manager.dart';
 import 'mini_player.dart';
 import 'playlist_detail_screen.dart';
+import 'theme.dart';
 
-// RENAMED class
 class PlaylistBrowserScreen extends StatefulWidget {
   const PlaylistBrowserScreen({super.key});
 
   @override
-  // RENAMED state class
   _PlaylistBrowserScreenState createState() => _PlaylistBrowserScreenState();
 }
 
@@ -107,12 +106,10 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
   Widget build(BuildContext context) {
     final themeManager = Provider.of<ThemeManager>(context);
     final isDarkMode = themeManager.themeMode == ThemeMode.dark;
-    final lightGradient = [const Color(0xFF6D5DF6), const Color(0xFF38B6FF)];
-    final darkGradient = [const Color(0xFF232A4E), const Color(0xFF171925)];
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MAD Music Player'), // UPDATED title
+        title: const Text('MAD Music Player'),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -167,7 +164,10 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isDarkMode ? darkGradient : lightGradient,
+            // UPDATED: Using colors from the theme file
+            colors: isDarkMode
+                ? AppThemes.darkGradient
+                : AppThemes.lightGradient,
           ),
         ),
         child: SafeArea(
