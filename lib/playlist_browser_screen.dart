@@ -161,6 +161,8 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     await _initAndLoad();
   }
 
+  // In lib/playlist_browser_screen.dart
+
   Future<void> _showCreatePlaylistDialog() async {
     final controller = TextEditingController();
     return showDialog(
@@ -168,10 +170,15 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('New Playlist'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: "Enter playlist name"),
+          content: Container(
+            width: double.maxFinite,
+            child: TextField(
+              controller: controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: "Enter playlist name",
+              ),
+            ),
           ),
           actions: [
             TextButton(

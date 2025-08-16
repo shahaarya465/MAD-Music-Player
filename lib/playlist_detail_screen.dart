@@ -2,17 +2,13 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-// import 'package:file_picker/file_picker.dart';
-// import 'package:uuid/uuid.dart';
 import 'playlist.dart';
 import 'player_manager.dart';
 import 'mini_player.dart';
 import 'add_songs_from_library_screen.dart';
 import 'theme.dart';
 
-// NEW: A simple class to represent a fully loaded song
 class Song {
   final String id;
   final String title;
@@ -46,7 +42,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   Future<void> _loadSongs() async {
-    // Load the central music library
     final documentsDir = await getApplicationDocumentsDirectory();
     final madMusicPlayerDir = Directory(
       '${documentsDir.path}/MAD Music Player',
@@ -55,11 +50,17 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
     if (await _libraryFile.exists()) {
       _musicLibrary = jsonDecode(await _libraryFile.readAsString());
+    } else {
+      await _libraryFile.writeAsString('{}');
+      _musicLibrary = {};
     }
 
-    // Get the song objects for the current playlist
+    final songIdsToLoad = widget.isAllSongsPlaylist
+        ? _musicLibrary.keys.toList()
+        : widget.playlist.songIDs;
+
     final songList = <Song>[];
-    for (String songId in widget.playlist.songIDs) {
+    for (String songId in songIdsToLoad) {
       if (_musicLibrary.containsKey(songId)) {
         songList.add(
           Song(
@@ -77,7 +78,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   }
 
   Future<void> _addSongsToPlaylist() async {
-    // Navigate to the new screen and wait for the result (a Set of song IDs)
     final selectedSongIDs = await Navigator.push<Set<String>>(
       context,
       MaterialPageRoute(
@@ -88,33 +88,25 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     );
 
     if (selectedSongIDs != null && selectedSongIDs.isNotEmpty) {
-      // Update the playlist's JSON file with the new song IDs
-      final updatedSongIDs = List<String>.from(widget.playlist.songIDs)
-        ..addAll(selectedSongIDs);
+      widget.playlist.songIDs.addAll(selectedSongIDs);
       final playlistJson = {
         "name": widget.playlist.name,
-        "songIDs": updatedSongIDs,
+        "songIDs": widget.playlist.songIDs,
       };
       await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
-
-      // Reload the songs to update the UI
       await _loadSongs();
     }
   }
 
-  // NEW: Rename a song globally
   Future<void> _renameSong(Song song, String newTitle) async {
     if (newTitle.trim().isEmpty || newTitle.trim() == song.title) return;
-
-    // Update the title in our central library
     if (_musicLibrary.containsKey(song.id)) {
       _musicLibrary[song.id]['title'] = newTitle.trim();
       await _libraryFile.writeAsString(jsonEncode(_musicLibrary));
-      await _loadSongs(); // Refresh the screen
+      await _loadSongs();
     }
   }
 
-  // NEW: Remove a song from this specific playlist
   Future<void> _removeSongFromPlaylist(Song song) async {
     final updatedSongIDs = List<String>.from(widget.playlist.songIDs)
       ..remove(song.id);
@@ -123,7 +115,68 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       "songIDs": updatedSongIDs,
     };
     await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
-    await _loadSongs(); // Refresh the screen
+    setState(() {
+      _songs.removeWhere((s) => s.id == song.id);
+      widget.playlist.songIDs.remove(song.id);
+    });
+  }
+
+  Future<void> _deleteSongGlobally(Song songToDelete) async {
+    final songFile = File(songToDelete.path);
+    if (await songFile.exists()) {
+      await songFile.delete();
+    }
+
+    _musicLibrary.remove(songToDelete.id);
+    await _libraryFile.writeAsString(jsonEncode(_musicLibrary));
+
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final playlistsDir = Directory(
+      '${documentsDir.path}/MAD Music Player/Playlists',
+    );
+    final playlistFiles = playlistsDir.listSync().whereType<File>().toList();
+
+    for (var file in playlistFiles) {
+      final playlist = await Playlist.fromFile(file);
+      if (playlist.songIDs.contains(songToDelete.id)) {
+        final updatedIDs = List<String>.from(playlist.songIDs)
+          ..remove(songToDelete.id);
+        final playlistJson = {"name": playlist.name, "songIDs": updatedIDs};
+        await file.writeAsString(jsonEncode(playlistJson));
+      }
+    }
+
+    await _loadSongs();
+  }
+
+  Future<void> _showGlobalDeleteConfirmationDialog(Song song) async {
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete from Library?'),
+          content: Text(
+            'Are you sure you want to permanently delete "${song.title}"? It will be removed from all playlists.',
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop(); // Close the dialog first
+                _deleteSongGlobally(song);
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _showRenameDialog(Song song) async {
@@ -132,7 +185,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Rename Song'),
-        content: TextField(controller: controller, autofocus: true),
+        content: Container(
+          width: double.maxFinite,
+          child: TextField(controller: controller, autofocus: true),
+        ),
         actions: [
           TextButton(
             child: const Text('Cancel'),
@@ -160,14 +216,14 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed:
-            _addSongsToPlaylist, // We'll update this workflow in the next step
-        label: const Text("Add Songs"),
-        icon: const Icon(Icons.add_rounded),
-      ),
+      floatingActionButton: widget.isAllSongsPlaylist
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _addSongsToPlaylist,
+              label: const Text("Add Songs"),
+              icon: const Icon(Icons.add_rounded),
+            ),
       bottomNavigationBar: Consumer<PlayerManager>(
-        // ... (bottomNavigationBar code is the same)
         builder: (context, playerManager, child) {
           if (playerManager.currentSongTitle == null)
             return const SizedBox.shrink();
@@ -199,7 +255,15 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ),
         ),
         child: _songs.isEmpty
-            ? const Center(/* ... child remains the same ... */)
+            ? Center(
+                child: Text(
+                  widget.isAllSongsPlaylist
+                      ? "Your library is empty.\nImport songs from the main screen!"
+                      : "This playlist is empty.\nAdd songs to get started!",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, fontSize: 18),
+                ),
+              )
             : ListView.builder(
                 itemCount: _songs.length,
                 itemBuilder: (context, index) {
@@ -211,22 +275,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       style: const TextStyle(color: Colors.white),
                     ),
                     onTap: () {
-                      // Pass the list of file paths to the player
                       final songPathsToPlay = _songs
                           .map((s) => s.path)
                           .toList();
                       playerManager.play(songPathsToPlay, index);
                     },
-                    // NEW: Menu for each song
                     trailing: PopupMenuButton<String>(
                       onSelected: (value) {
                         if (value == 'rename') {
                           _showRenameDialog(song);
                         } else if (value == 'remove') {
-                          // This is where the logic splits
+                          // UPDATED: Logic split is now functional
                           if (widget.isAllSongsPlaylist) {
-                            // TODO: Implement global delete confirmation
-                            print("Global delete not implemented yet.");
+                            _showGlobalDeleteConfirmationDialog(song);
                           } else {
                             _removeSongFromPlaylist(song);
                           }

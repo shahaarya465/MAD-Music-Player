@@ -3,7 +3,7 @@ import 'dart:convert';
 
 class Playlist {
   final String name;
-  final List<String> songIDs; // Changed from songPaths
+  List<String> songIDs;
   final File file;
 
   Playlist({required this.name, required this.songIDs, required this.file});
