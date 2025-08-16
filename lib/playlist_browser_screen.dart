@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'playlist.dart';
 import 'theme_manager.dart';
 import 'player_manager.dart';
@@ -22,25 +24,27 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
   late Directory _songsDir;
+  List<String> _allSongPaths = []; // To hold all songs in the library
 
   @override
   void initState() {
     super.initState();
-    _initDirectoriesAndLoadPlaylists();
+    _initAndLoad();
   }
 
-  Future<void> _initDirectoriesAndLoadPlaylists() async {
+  Future<void> _initAndLoad() async {
     final documentsDir = await getApplicationDocumentsDirectory();
     final madMusicPlayerDir = Directory(
       '${documentsDir.path}/MAD Music Player',
     );
-    if (!await madMusicPlayerDir.exists()) {
-      await madMusicPlayerDir.create();
-    }
+    if (!await madMusicPlayerDir.exists()) await madMusicPlayerDir.create();
+
     _playlistsDir = Directory('${madMusicPlayerDir.path}/Playlists');
     _songsDir = Directory('${madMusicPlayerDir.path}/Songs');
     if (!await _playlistsDir.exists()) await _playlistsDir.create();
     if (!await _songsDir.exists()) await _songsDir.create();
+
+    // Load user-created playlists
     final List<Playlist> loadedPlaylists = [];
     final entities = _playlistsDir.listSync();
     for (var entity in entities) {
@@ -48,11 +52,45 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         loadedPlaylists.add(await Playlist.fromFile(entity));
       }
     }
+
+    // Load all songs from the /Songs directory for the "All Songs" playlist
+    final songFiles = _songsDir.listSync().whereType<File>().toList();
+
     setState(() {
       _playlists = loadedPlaylists;
+      _allSongPaths = songFiles.map((f) => f.path).toList();
     });
   }
 
+  // NEW: Function to import songs to the central /Songs library
+  Future<void> _importSongsToLibrary() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+      allowMultiple: true,
+    );
+    if (result != null && result.files.isNotEmpty) {
+      int importCount = 0;
+      for (var file in result.files) {
+        if (file.path != null) {
+          final destPath = p.join(_songsDir.path, p.basename(file.path!));
+          if (!await File(destPath).exists()) {
+            await File(file.path!).copy(destPath);
+            importCount++;
+          }
+        }
+      }
+      await _initAndLoad(); // Refresh everything
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Imported $importCount new songs to your library.'),
+          ),
+        );
+      }
+    }
+  }
+
+  // ... _createPlaylist, _deletePlaylist, _renamePlaylist, and dialog methods remain the same ...
   Future<void> _createPlaylist(String name) async {
     final trimmedName = name.trim();
     if (trimmedName.isEmpty) return;
@@ -69,17 +107,14 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     }
     final initialContent = {"name": trimmedName, "songPaths": []};
     await newPlaylistFile.writeAsString(jsonEncode(initialContent));
-    await _initDirectoriesAndLoadPlaylists();
+    await _initAndLoad();
   }
 
-  // NEW: Function to handle deleting a playlist
   Future<void> _deletePlaylist(Playlist playlist) async {
     await playlist.file.delete();
-    // Note: This only deletes the playlist file, not the songs in the /Songs folder.
-    await _initDirectoriesAndLoadPlaylists();
+    await _initAndLoad();
   }
 
-  // NEW: Function to handle renaming a playlist
   Future<void> _renamePlaylist(Playlist playlist, String newName) async {
     final trimmedName = newName.trim();
     if (trimmedName.isEmpty || trimmedName == playlist.name) return;
@@ -95,8 +130,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       }
       return;
     }
-
-    // Update the content and move the file
     final updatedContent = {
       "name": trimmedName,
       "songPaths": playlist.songPaths,
@@ -104,69 +137,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     await playlist.file.rename(newFile.path);
     await newFile.writeAsString(jsonEncode(updatedContent));
 
-    await _initDirectoriesAndLoadPlaylists();
-  }
-
-  // NEW: Dialog for renaming a playlist
-  Future<void> _showRenameDialog(Playlist playlist) async {
-    final controller = TextEditingController(text: playlist.name);
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Rename Playlist'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: "Enter new name"),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text('Rename'),
-              onPressed: () {
-                _renamePlaylist(playlist, controller.text);
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // NEW: Confirmation dialog for deleting a playlist
-  Future<void> _showDeleteConfirmationDialog(Playlist playlist) async {
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Playlist?'),
-          content: Text(
-            'Are you sure you want to delete the playlist "${playlist.name}"? This cannot be undone.',
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: Text(
-                'Delete',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              onPressed: () {
-                _deletePlaylist(playlist);
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
+    await _initAndLoad();
   }
 
   Future<void> _showCreatePlaylistDialog() async {
@@ -199,10 +170,77 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     );
   }
 
+  Future<void> _showRenameDialog(Playlist playlist) async {
+    final controller = TextEditingController(text: playlist.name);
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Rename Playlist'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: "Enter new name"),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Rename'),
+              onPressed: () {
+                _renamePlaylist(playlist, controller.text);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showDeleteConfirmationDialog(Playlist playlist) async {
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Playlist?'),
+          content: Text(
+            'Are you sure you want to delete the playlist "${playlist.name}"? This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onPressed: () {
+                _deletePlaylist(playlist);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeManager = Provider.of<ThemeManager>(context);
     final isDarkMode = themeManager.themeMode == ThemeMode.dark;
+
+    // Create the "All Songs" playlist object on the fly
+    final allSongsPlaylist = Playlist(
+      name: "All Songs",
+      songPaths: _allSongPaths,
+      file: File(''), // Dummy file, not a real JSON
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -211,6 +249,12 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          // NEW: "New Playlist" button moved to AppBar
+          IconButton(
+            icon: const Icon(Icons.create_new_folder_outlined),
+            tooltip: 'New Playlist',
+            onPressed: _showCreatePlaylistDialog,
+          ),
           IconButton(
             icon: Icon(
               _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
@@ -225,16 +269,16 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           ),
         ],
       ),
+      // UPDATED: FAB is now for importing songs to the library
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showCreatePlaylistDialog,
-        label: const Text('New Playlist'),
-        icon: const Icon(Icons.add_rounded),
+        onPressed: _importSongsToLibrary,
+        label: const Text('Import Songs'),
+        icon: const Icon(Icons.add_to_photos_rounded),
       ),
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, playerManager, child) {
-          if (playerManager.currentSongTitle == null) {
+          if (playerManager.currentSongTitle == null)
             return const SizedBox.shrink();
-          }
           return MiniPlayer(
             songTitle: playerManager.currentSongTitle!,
             isPlaying: playerManager.isPlaying,
@@ -245,10 +289,8 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                 : playerManager.resume(),
             onPrevious: playerManager.playPrevious,
             onNext: playerManager.playNext,
-            onSeek: (value) {
-              final newPosition = Duration(seconds: value.toInt());
-              playerManager.seek(newPosition);
-            },
+            onSeek: (value) =>
+                playerManager.seek(Duration(seconds: value.toInt())),
             onSeekBackward: playerManager.seekBackward10,
             onSeekForward: playerManager.seekForward10,
           );
@@ -267,28 +309,22 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           ),
         ),
         child: SafeArea(
-          child: _playlists.isEmpty
-              ? const Center(
-                  child: Text(
-                    "No playlists found.\nCreate one to get started!",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, fontSize: 18),
-                  ),
-                )
-              : _isGridView
-              ? _buildGridView()
-              : _buildListView(),
+          child: _isGridView
+              ? _buildGridView(allSongsPlaylist)
+              : _buildListView(allSongsPlaylist),
         ),
       ),
     );
   }
 
-  Widget _buildListView() {
+  Widget _buildListView(Playlist allSongsPlaylist) {
+    final fullList = [allSongsPlaylist, ..._playlists];
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
-      itemCount: _playlists.length,
+      itemCount: fullList.length,
       itemBuilder: (context, index) {
-        final playlist = _playlists[index];
+        final playlist = fullList[index];
+        final isAllSongs = index == 0;
         return Card(
           color: Colors.white.withOpacity(0.1),
           margin: const EdgeInsets.only(bottom: 12.0),
@@ -296,8 +332,10 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
             borderRadius: BorderRadius.circular(12),
           ),
           child: ListTile(
-            leading: const Icon(
-              Icons.music_note_rounded,
+            leading: Icon(
+              isAllSongs
+                  ? Icons.library_music_rounded
+                  : Icons.music_note_rounded,
               color: Colors.white,
               size: 30,
             ),
@@ -312,36 +350,39 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               '${playlist.songPaths.length} songs',
               style: const TextStyle(color: Colors.white70),
             ),
-            // UPDATED: Replaced Icon with a PopupMenuButton
-            trailing: PopupMenuButton<String>(
-              onSelected: (value) {
-                if (value == 'rename') {
-                  _showRenameDialog(playlist);
-                } else if (value == 'delete') {
-                  _showDeleteConfirmationDialog(playlist);
-                }
-              },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'rename',
-                  child: Text('Rename'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'delete',
-                  child: Text('Delete'),
-                ),
-              ],
-              icon: const Icon(Icons.more_vert, color: Colors.white70),
-            ),
+            trailing: isAllSongs
+                ? null
+                : PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'rename')
+                        _showRenameDialog(playlist);
+                      else if (value == 'delete')
+                        _showDeleteConfirmationDialog(playlist);
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'rename',
+                            child: Text('Rename'),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
+                    icon: const Icon(Icons.more_vert, color: Colors.white70),
+                  ),
             onTap: () async {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      PlaylistDetailScreen(playlist: playlist),
+                  builder: (context) => PlaylistDetailScreen(
+                    playlist: playlist,
+                    isAllSongsPlaylist: isAllSongs,
+                  ),
                 ),
               );
-              _initDirectoriesAndLoadPlaylists();
+              _initAndLoad();
             },
           ),
         );
@@ -349,7 +390,8 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     );
   }
 
-  Widget _buildGridView() {
+  Widget _buildGridView(Playlist allSongsPlaylist) {
+    final fullList = [allSongsPlaylist, ..._playlists];
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -357,9 +399,10 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         crossAxisSpacing: 16.0,
         mainAxisSpacing: 16.0,
       ),
-      itemCount: _playlists.length,
+      itemCount: fullList.length,
       itemBuilder: (context, index) {
-        final playlist = _playlists[index];
+        final playlist = fullList[index];
+        final isAllSongs = index == 0;
         return Card(
           color: Colors.white.withOpacity(0.1),
           shape: RoundedRectangleBorder(
@@ -370,11 +413,13 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) =>
-                      PlaylistDetailScreen(playlist: playlist),
+                  builder: (context) => PlaylistDetailScreen(
+                    playlist: playlist,
+                    isAllSongsPlaylist: isAllSongs,
+                  ),
                 ),
               );
-              _initDirectoriesAndLoadPlaylists();
+              _initAndLoad();
             },
             borderRadius: BorderRadius.circular(16),
             child: Stack(
@@ -385,8 +430,10 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(
-                        Icons.queue_music_rounded,
+                      Icon(
+                        isAllSongs
+                            ? Icons.library_music_rounded
+                            : Icons.queue_music_rounded,
                         color: Colors.white,
                         size: 40,
                       ),
@@ -406,32 +453,31 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                     ],
                   ),
                 ),
-                // UPDATED: Added a PopupMenuButton to the grid view as well
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'rename') {
-                        _showRenameDialog(playlist);
-                      } else if (value == 'delete') {
-                        _showDeleteConfirmationDialog(playlist);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) =>
-                        <PopupMenuEntry<String>>[
-                          const PopupMenuItem<String>(
-                            value: 'rename',
-                            child: Text('Rename'),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
-                        ],
-                    icon: const Icon(Icons.more_vert, color: Colors.white70),
+                if (!isAllSongs)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'rename')
+                          _showRenameDialog(playlist);
+                        else if (value == 'delete')
+                          _showDeleteConfirmationDialog(playlist);
+                      },
+                      itemBuilder: (BuildContext context) =>
+                          <PopupMenuEntry<String>>[
+                            const PopupMenuItem<String>(
+                              value: 'rename',
+                              child: Text('Rename'),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                          ],
+                      icon: const Icon(Icons.more_vert, color: Colors.white70),
+                    ),
                   ),
-                ),
               ],
             ),
           ),

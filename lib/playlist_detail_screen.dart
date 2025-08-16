@@ -1,19 +1,22 @@
-import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'playlist.dart';
 import 'player_manager.dart';
 import 'mini_player.dart';
-import 'playlist.dart';
+import 'add_songs_from_library_screen.dart'; // NEW import
 import 'theme.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final Playlist playlist;
+  final bool isAllSongsPlaylist; // To know if this is the special playlist
 
-  const PlaylistDetailScreen({super.key, required this.playlist});
+  const PlaylistDetailScreen({
+    super.key,
+    required this.playlist,
+    this.isAllSongsPlaylist = false,
+  });
 
   @override
   _PlaylistDetailScreenState createState() => _PlaylistDetailScreenState();
@@ -28,41 +31,21 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     _songPaths = List.from(widget.playlist.songPaths);
   }
 
-  // This function handles copying songs to /Songs and updating the JSON
+  // UPDATED: This function now opens the library screen to add songs
   Future<void> _addSongsToPlaylist() async {
-    // Let the user pick multiple audio files
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-      allowMultiple: true,
+    // Navigate to the new screen and wait for the result
+    final selectedSongs = await Navigator.push<Set<String>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) =>
+            AddSongsFromLibraryScreen(existingSongPaths: _songPaths.toSet()),
+      ),
     );
 
-    if (result != null && result.files.isNotEmpty) {
-      final documentsDir = await getApplicationDocumentsDirectory();
-
-      // UPDATED: Correctly point to the 'MAD Music Player/Songs' folder
-      final madMusicPlayerDir = Directory(
-        '${documentsDir.path}/MAD Music Player',
-      );
-      final songsDir = Directory('${madMusicPlayerDir.path}/Songs');
-
-      List<String> newPathsToAdd = [];
-
-      for (var file in result.files) {
-        if (file.path != null) {
-          final sourceFile = File(file.path!);
-          final destPath = p.join(songsDir.path, p.basename(file.path!));
-
-          // Copy the file to the central /Songs directory
-          await sourceFile.copy(destPath);
-
-          // Add the *new* path (the pointer) to our list
-          newPathsToAdd.add(destPath);
-        }
-      }
-
+    if (selectedSongs != null && selectedSongs.isNotEmpty) {
       // Update the playlist's JSON file
       final updatedSongPaths = List<String>.from(_songPaths)
-        ..addAll(newPathsToAdd);
+        ..addAll(selectedSongs);
       final playlistJson = {
         "name": widget.playlist.name,
         "songPaths": updatedSongPaths,
@@ -86,16 +69,18 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _addSongsToPlaylist,
-        label: const Text("Add Songs"),
-        icon: const Icon(Icons.add_rounded),
-      ),
+      // Only show the "Add Songs" button for user-created playlists
+      floatingActionButton: widget.isAllSongsPlaylist
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _addSongsToPlaylist,
+              label: const Text("Add Songs"),
+              icon: const Icon(Icons.add_rounded),
+            ),
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, playerManager, child) {
-          if (playerManager.currentSongTitle == null) {
+          if (playerManager.currentSongTitle == null)
             return const SizedBox.shrink();
-          }
           return MiniPlayer(
             songTitle: playerManager.currentSongTitle!,
             isPlaying: playerManager.isPlaying,
@@ -106,10 +91,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 : playerManager.resume(),
             onPrevious: playerManager.playPrevious,
             onNext: playerManager.playNext,
-            onSeek: (value) {
-              final newPosition = Duration(seconds: value.toInt());
-              playerManager.seek(newPosition);
-            },
+            onSeek: (value) =>
+                playerManager.seek(Duration(seconds: value.toInt())),
             onSeekBackward: playerManager.seekBackward10,
             onSeekForward: playerManager.seekForward10,
           );
@@ -120,18 +103,19 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            // UPDATED: Using colors from the theme file
             colors: Theme.of(context).brightness == Brightness.dark
                 ? AppThemes.darkGradient
                 : AppThemes.lightGradient,
           ),
         ),
         child: _songPaths.isEmpty
-            ? const Center(
+            ? Center(
                 child: Text(
-                  "This playlist is empty.\nAdd some songs to get started!",
+                  widget.isAllSongsPlaylist
+                      ? "Your library is empty.\nImport songs from the main screen!"
+                      : "This playlist is empty.\nAdd some songs!",
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, fontSize: 18),
+                  style: const TextStyle(color: Colors.white70, fontSize: 18),
                 ),
               )
             : ListView.builder(
