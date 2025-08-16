@@ -72,6 +72,103 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     await _initDirectoriesAndLoadPlaylists();
   }
 
+  // NEW: Function to handle deleting a playlist
+  Future<void> _deletePlaylist(Playlist playlist) async {
+    await playlist.file.delete();
+    // Note: This only deletes the playlist file, not the songs in the /Songs folder.
+    await _initDirectoriesAndLoadPlaylists();
+  }
+
+  // NEW: Function to handle renaming a playlist
+  Future<void> _renamePlaylist(Playlist playlist, String newName) async {
+    final trimmedName = newName.trim();
+    if (trimmedName.isEmpty || trimmedName == playlist.name) return;
+
+    final newFile = File('${_playlistsDir.path}/$trimmedName.json');
+    if (await newFile.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('A playlist named "$trimmedName" already exists.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Update the content and move the file
+    final updatedContent = {
+      "name": trimmedName,
+      "songPaths": playlist.songPaths,
+    };
+    await playlist.file.rename(newFile.path);
+    await newFile.writeAsString(jsonEncode(updatedContent));
+
+    await _initDirectoriesAndLoadPlaylists();
+  }
+
+  // NEW: Dialog for renaming a playlist
+  Future<void> _showRenameDialog(Playlist playlist) async {
+    final controller = TextEditingController(text: playlist.name);
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Rename Playlist'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: "Enter new name"),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Rename'),
+              onPressed: () {
+                _renamePlaylist(playlist, controller.text);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // NEW: Confirmation dialog for deleting a playlist
+  Future<void> _showDeleteConfirmationDialog(Playlist playlist) async {
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Playlist?'),
+          content: Text(
+            'Are you sure you want to delete the playlist "${playlist.name}"? This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onPressed: () {
+                _deletePlaylist(playlist);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _showCreatePlaylistDialog() async {
     final controller = TextEditingController();
     return showDialog(
@@ -164,7 +261,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            // UPDATED: Using colors from the theme file
             colors: isDarkMode
                 ? AppThemes.darkGradient
                 : AppThemes.lightGradient,
@@ -216,7 +312,27 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               '${playlist.songPaths.length} songs',
               style: const TextStyle(color: Colors.white70),
             ),
-            trailing: const Icon(Icons.more_vert, color: Colors.white70),
+            // UPDATED: Replaced Icon with a PopupMenuButton
+            trailing: PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'rename') {
+                  _showRenameDialog(playlist);
+                } else if (value == 'delete') {
+                  _showDeleteConfirmationDialog(playlist);
+                }
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'rename',
+                  child: Text('Rename'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Text('Delete'),
+                ),
+              ],
+              icon: const Icon(Icons.more_vert, color: Colors.white70),
+            ),
             onTap: () async {
               await Navigator.push(
                 context,
@@ -261,32 +377,62 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               _initDirectoriesAndLoadPlaylists();
             },
             borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.queue_music_rounded,
-                    color: Colors.white,
-                    size: 40,
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.queue_music_rounded,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                      const Spacer(),
+                      Text(
+                        playlist.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        '${playlist.songPaths.length} songs',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
                   ),
-                  const Spacer(),
-                  Text(
-                    playlist.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
+                ),
+                // UPDATED: Added a PopupMenuButton to the grid view as well
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'rename') {
+                        _showRenameDialog(playlist);
+                      } else if (value == 'delete') {
+                        _showDeleteConfirmationDialog(playlist);
+                      }
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'rename',
+                            child: Text('Rename'),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
+                    icon: const Icon(Icons.more_vert, color: Colors.white70),
                   ),
-                  Text(
-                    '${playlist.songPaths.length} songs',
-                    style: const TextStyle(color: Colors.white70),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
