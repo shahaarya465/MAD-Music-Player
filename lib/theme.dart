@@ -12,10 +12,12 @@ class AppThemes {
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      iconTheme: IconThemeData(color: Colors.white),
+      // UPDATED: Icons are now black in light mode
+      iconTheme: IconThemeData(color: Colors.black),
+      // UPDATED: Title text is now black in light mode
       titleTextStyle: TextStyle(
         fontWeight: FontWeight.bold,
-        color: Colors.white,
+        color: Colors.black,
         fontSize: 20,
       ),
     ),

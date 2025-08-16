@@ -1,16 +1,28 @@
 import 'dart:io';
-
+import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as p;
-import 'package:flutter_media_metadata/flutter_media_metadata.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-
-import 'song_list_widget.dart';
-import 'mini_player.dart';
+import 'package:path_provider/path_provider.dart';
 import 'theme_manager.dart';
+import 'playlist_detail_screen.dart';
+
+class Playlist {
+  final String name;
+  final List<String> songPaths;
+  final File file;
+
+  Playlist({required this.name, required this.songPaths, required this.file});
+
+  static Future<Playlist> fromFile(File file) async {
+    final content = await file.readAsString();
+    final json = jsonDecode(content);
+    return Playlist(
+      name: json['name'],
+      songPaths: List<String>.from(json['songPaths']),
+      file: file,
+    );
+  }
+}
 
 class MusicPlayerScreen extends StatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -20,276 +32,268 @@ class MusicPlayerScreen extends StatefulWidget {
 }
 
 class _MusicPlayerScreenState extends State<MusicPlayerScreen> {
-  final AudioPlayer _audioPlayer = AudioPlayer();
-  bool _isPlaying = false;
-  Duration _duration = Duration.zero;
-  Duration _position = Duration.zero;
-  List<String> _songPaths = [];
-  List<String> _songTitles = [];
-  int? _currentSongIndex;
+  bool _isGridView = false;
+  List<Playlist> _playlists = [];
+  late Directory _playlistsDir;
+  late Directory _songsDir;
 
   @override
   void initState() {
     super.initState();
-    _loadPlaylist();
-    _audioPlayer.onPlayerStateChanged.listen((state) {
-      if (mounted) {
-        setState(() {
-          _isPlaying = state == PlayerState.playing;
-        });
-      }
-    });
-    _audioPlayer.onDurationChanged.listen((newDuration) {
-      if (mounted) {
-        setState(() {
-          _duration = newDuration;
-        });
-      }
-    });
-    _audioPlayer.onPositionChanged.listen((newPosition) {
-      if (mounted) {
-        setState(() {
-          _position = newPosition;
-        });
-      }
-    });
+    _initDirectoriesAndLoadPlaylists();
   }
 
-  Future<void> _savePlaylist() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setStringList('song_paths', _songPaths);
-    await prefs.setStringList('song_titles', _songTitles);
-    await prefs.setInt('last_index', _currentSongIndex ?? -1);
-  }
+  Future<void> _initDirectoriesAndLoadPlaylists() async {
+    final documentsDir = await getApplicationDocumentsDirectory();
 
-  Future<void> _loadPlaylist() async {
-    final prefs = await SharedPreferences.getInstance();
-    final paths = prefs.getStringList('song_paths');
-    final titles = prefs.getStringList('song_titles');
-    final lastIndex = prefs.getInt('last_index');
-    if (paths != null && titles != null) {
-      setState(() {
-        _songPaths = paths;
-        _songTitles = titles;
-        _currentSongIndex = (lastIndex != null && lastIndex != -1)
-            ? lastIndex
-            : null;
-      });
-    }
-  }
-
-  @override
-  void dispose() {
-    _audioPlayer.dispose();
-    super.dispose();
-  }
-
-  Future<void> _pickFile() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-      allowMultiple: true,
+    final madMusicPlayerDir = Directory(
+      '${documentsDir.path}/MAD Music Player',
     );
-    if (result != null && result.files.isNotEmpty) {
-      List<String> selectedPaths = result.files.map((f) => f.path!).toList();
-      List<String> newPaths = selectedPaths
-          .where((p) => !_songPaths.contains(p))
-          .toList();
-      List<String> newTitles = [];
-      for (final path in newPaths) {
-        String title = p.basename(path);
-        try {
-          final metadata = await MetadataRetriever.fromFile(File(path));
-          if (metadata.trackName != null &&
-              metadata.trackName!.trim().isNotEmpty) {
-            title = metadata.trackName!;
-          }
-        } catch (e) {
-          // ignore and use filename
-        }
-        final uuidRegex = RegExp(r'^[0-9a-fA-F\-]{32,}$');
-        final isUuid = uuidRegex.hasMatch(
-          title.replaceAll('.', '').replaceAll('-', ''),
+    if (!await madMusicPlayerDir.exists()) {
+      await madMusicPlayerDir.create();
+    }
+
+    _playlistsDir = Directory('${madMusicPlayerDir.path}/Playlists');
+    _songsDir = Directory('${madMusicPlayerDir.path}/Songs');
+
+    if (!await _playlistsDir.exists()) await _playlistsDir.create();
+    if (!await _songsDir.exists()) await _songsDir.create();
+
+    final List<Playlist> loadedPlaylists = [];
+    final entities = _playlistsDir.listSync();
+    for (var entity in entities) {
+      if (entity is File && entity.path.endsWith('.json')) {
+        loadedPlaylists.add(await Playlist.fromFile(entity));
+      }
+    }
+
+    setState(() {
+      _playlists = loadedPlaylists;
+    });
+  }
+
+  Future<void> _createPlaylist(String name) async {
+    final trimmedName = name.trim();
+    if (trimmedName.isEmpty) return;
+
+    final newPlaylistFile = File('${_playlistsDir.path}/$trimmedName.json');
+
+    if (await newPlaylistFile.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('A playlist named "$trimmedName" already exists.'),
+          ),
         );
-        if (title.trim().isEmpty || isUuid) {
-          title = p.basenameWithoutExtension(path);
-        }
-        newTitles.add(title);
       }
-      if (mounted) {
-        setState(() {
-          _songPaths.addAll(newPaths);
-          _songTitles.addAll(newTitles);
-          if (_currentSongIndex == null && _songPaths.isNotEmpty) {
-            _currentSongIndex = 0;
-            _play(_currentSongIndex!);
-          }
-        });
-        _savePlaylist();
-      }
+      return;
     }
+
+    final initialContent = {"name": trimmedName, "songPaths": []};
+    await newPlaylistFile.writeAsString(jsonEncode(initialContent));
+
+    await _initDirectoriesAndLoadPlaylists();
   }
 
-  Future<void> _play(int index) async {
-    if (index >= 0 && index < _songPaths.length) {
-      await _audioPlayer.play(DeviceFileSource(_songPaths[index]));
-      if (mounted) {
-        setState(() {
-          _currentSongIndex = index;
-        });
-        _savePlaylist();
-      }
-    }
-  }
-
-  Future<void> _resume() async {
-    if (_currentSongIndex != null && _currentSongIndex! < _songPaths.length) {
-      await _audioPlayer.resume();
-    }
-  }
-
-  Future<void> _pause() async {
-    await _audioPlayer.pause();
-  }
-
-  Future<void> _playNext() async {
-    if (_currentSongIndex != null) {
-      int nextIndex = _currentSongIndex! + 1;
-      if (nextIndex >= _songPaths.length) {
-        nextIndex = 0;
-      }
-      await _play(nextIndex);
-    }
-  }
-
-  Future<void> _playPrevious() async {
-    if (_currentSongIndex != null) {
-      int prevIndex = _currentSongIndex! - 1;
-      if (prevIndex < 0) {
-        prevIndex = _songPaths.length - 1;
-      }
-      await _play(prevIndex);
-    }
-  }
-
-  void _seekForward() {
-    if (_duration == Duration.zero) return;
-    final newPosition = _position + const Duration(seconds: 10);
-    _audioPlayer.seek(newPosition > _duration ? _duration : newPosition);
-  }
-
-  void _seekBackward() {
-    if (_duration == Duration.zero) return;
-    final newPosition = _position - const Duration(seconds: 10);
-    _audioPlayer.seek(
-      newPosition < Duration.zero ? Duration.zero : newPosition,
+  Future<void> _showCreatePlaylistDialog() async {
+    final controller = TextEditingController();
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('New Playlist'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: "Enter playlist name"),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Create'),
+              onPressed: () {
+                _createPlaylist(controller.text);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // NEW: Get the ThemeManager from the provider
     final themeManager = Provider.of<ThemeManager>(context);
-
-    // NEW: Define gradients for light and dark mode
+    final isDarkMode = themeManager.themeMode == ThemeMode.dark;
     final lightGradient = [const Color(0xFF6D5DF6), const Color(0xFF38B6FF)];
     final darkGradient = [const Color(0xFF232A4E), const Color(0xFF171925)];
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('MAD Music Player'),
+        title: const Text('My Playlists'),
+        // ... (rest of AppBar is the same)
         centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
-          // NEW: Theme toggle button
           IconButton(
             icon: Icon(
-              themeManager.themeMode == ThemeMode.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded,
+              _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
             ),
-            onPressed: () {
-              themeManager.toggleTheme();
-            },
+            onPressed: () => setState(() => _isGridView = !_isGridView),
+          ),
+          IconButton(
+            icon: Icon(
+              isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+            ),
+            onPressed: () => themeManager.toggleTheme(),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _pickFile,
-        label: const Text('Import Songs'),
-        icon: const Icon(Icons.library_music_rounded),
+        onPressed: _showCreatePlaylistDialog,
+        label: const Text('New Playlist'),
+        icon: const Icon(Icons.add_rounded),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      bottomNavigationBar: _currentSongIndex != null && _songTitles.isNotEmpty
-          ? MiniPlayer(
-              songTitle: _songTitles[_currentSongIndex!],
-              isPlaying: _isPlaying,
-              position: _position,
-              duration: _duration,
-              onPlayPause: () {
-                if (_isPlaying) {
-                  _pause();
-                } else {
-                  _resume();
-                }
-              },
-              onPrevious: _playPrevious,
-              onNext: _playNext,
-              onSeekBackward: _seekBackward,
-              onSeekForward: _seekForward,
-              onSeek: (value) {
-                final newPosition = Duration(seconds: value.toInt());
-                _audioPlayer.seek(newPosition);
-              },
-            )
-          : null,
       body: Container(
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
-          // NEW: Dynamically change gradient based on theme
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: themeManager.themeMode == ThemeMode.dark
-                ? darkGradient
-                : lightGradient,
+            colors: isDarkMode ? darkGradient : lightGradient,
           ),
         ),
         child: SafeArea(
-          child: SongListWidget(
-            songPaths: _songPaths,
-            songTitles: _songTitles,
-            currentSongIndex: _currentSongIndex,
-            onSongTap: (index) {
-              _play(index);
-            },
-            onRemove: (index) async {
-              bool isCurrent = index == _currentSongIndex;
-              setState(() {
-                _songPaths.removeAt(index);
-                _songTitles.removeAt(index);
-                if (_songPaths.isEmpty) {
-                  _currentSongIndex = null;
-                  _audioPlayer.stop();
-                } else if (isCurrent) {
-                  _currentSongIndex = index % _songPaths.length;
-                  _play(_currentSongIndex!);
-                } else if (_currentSongIndex != null &&
-                    index < _currentSongIndex!) {
-                  _currentSongIndex = _currentSongIndex! - 1;
-                }
-              });
-              _savePlaylist();
-            },
-            onRename: (index, newName) {
-              setState(() {
-                _songTitles[index] = newName;
-              });
-              _savePlaylist();
-            },
-          ),
+          child: _playlists.isEmpty
+              ? const Center(
+                  child: Text(
+                    "No playlists found.\nCreate one to get started!",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white70, fontSize: 18),
+                  ),
+                )
+              : _isGridView
+              ? _buildGridView()
+              : _buildListView(),
         ),
       ),
+    );
+  }
+
+  Widget _buildListView() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      itemCount: _playlists.length,
+      itemBuilder: (context, index) {
+        final playlist = _playlists[index];
+        return Card(
+          color: Colors.white.withOpacity(0.1),
+          margin: const EdgeInsets.only(bottom: 12.0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            leading: const Icon(
+              Icons.music_note_rounded,
+              color: Colors.white,
+              size: 30,
+            ),
+            title: Text(
+              playlist.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            subtitle: Text(
+              '${playlist.songPaths.length} songs',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            trailing: const Icon(Icons.more_vert, color: Colors.white70),
+            // UPDATED: onTap now navigates to the detail screen
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      PlaylistDetailScreen(playlist: playlist),
+                ),
+              );
+              // After returning, reload playlists to reflect any changes in song count
+              _initDirectoriesAndLoadPlaylists();
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGridView() {
+    return GridView.builder(
+      padding: const EdgeInsets.all(16.0),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16.0,
+        mainAxisSpacing: 16.0,
+      ),
+      itemCount: _playlists.length,
+      itemBuilder: (context, index) {
+        final playlist = _playlists[index];
+        return Card(
+          color: Colors.white.withOpacity(0.1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: InkWell(
+            // UPDATED: onTap now navigates to the detail screen
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      PlaylistDetailScreen(playlist: playlist),
+                ),
+              );
+              // After returning, reload playlists to reflect any changes in song count
+              _initDirectoriesAndLoadPlaylists();
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.queue_music_rounded,
+                    color: Colors.white,
+                    size: 40,
+                  ),
+                  const Spacer(),
+                  Text(
+                    playlist.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    '${playlist.songPaths.length} songs',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
