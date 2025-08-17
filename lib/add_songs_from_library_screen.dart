@@ -2,7 +2,9 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
-import 'playlist_detail_screen.dart'; // We need the Song class
+import 'playlist_detail_screen.dart';
+import 'search_bar_widget.dart';
+import 'theme.dart';
 
 class AddSongsFromLibraryScreen extends StatefulWidget {
   final Set<String> existingSongIDs;
@@ -18,10 +20,22 @@ class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
   List<Song> _allSongs = [];
   Set<String> _selectedSongIDs = {};
 
+  final TextEditingController _searchController = TextEditingController();
+  List<Song> _filteredSongs = [];
+
   @override
   void initState() {
     super.initState();
     _loadLibrarySongs();
+    _searchController.addListener(() {
+      _filterSongs(_searchController.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadLibrarySongs() async {
@@ -41,8 +55,25 @@ class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
       });
       setState(() {
         _allSongs = songList;
+        _filteredSongs = songList; // Initialize filtered list with all songs
       });
     }
+  }
+
+  // NEW: Function to filter songs based on search query
+  void _filterSongs(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _filteredSongs = _allSongs;
+      });
+      return;
+    }
+    final results = _allSongs.where((song) {
+      return song.title.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+    setState(() {
+      _filteredSongs = results;
+    });
   }
 
   @override
@@ -69,45 +100,58 @@ class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: Theme.of(context).brightness == Brightness.dark
-                ? [const Color(0xFF36373B), const Color(0xFF1E1F24)]
-                : [const Color(0xFF6D5DF6), const Color(0xFF38B6FF)],
+                ? AppThemes.darkGradient
+                : AppThemes.lightGradient,
           ),
         ),
-        child: ListView.builder(
-          itemCount: _allSongs.length,
-          itemBuilder: (context, index) {
-            final song = _allSongs[index];
-            final alreadyExists = widget.existingSongIDs.contains(song.id);
-            final isSelected = _selectedSongIDs.contains(song.id);
+        child: Column(
+          children: [
+            SearchBarWidget(
+              controller: _searchController,
+              hintText: 'Search your library...',
+              onChanged: _filterSongs,
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _filteredSongs.length,
+                itemBuilder: (context, index) {
+                  final song = _filteredSongs[index];
+                  final alreadyExists = widget.existingSongIDs.contains(
+                    song.id,
+                  );
+                  final isSelected = _selectedSongIDs.contains(song.id);
 
-            return CheckboxListTile(
-              title: Text(
-                song.title,
-                style: TextStyle(
-                  color: alreadyExists ? Colors.grey : Colors.white,
-                ),
+                  return CheckboxListTile(
+                    title: Text(
+                      song.title,
+                      style: TextStyle(
+                        color: alreadyExists ? Colors.grey : Colors.white,
+                      ),
+                    ),
+                    subtitle: alreadyExists
+                        ? const Text(
+                            "Already in playlist",
+                            style: TextStyle(color: Colors.grey),
+                          )
+                        : null,
+                    value: isSelected,
+                    activeColor: Theme.of(context).colorScheme.primary,
+                    onChanged: alreadyExists
+                        ? null
+                        : (bool? value) {
+                            setState(() {
+                              if (value == true) {
+                                _selectedSongIDs.add(song.id);
+                              } else {
+                                _selectedSongIDs.remove(song.id);
+                              }
+                            });
+                          },
+                  );
+                },
               ),
-              subtitle: alreadyExists
-                  ? const Text(
-                      "Already in playlist",
-                      style: TextStyle(color: Colors.grey),
-                    )
-                  : null,
-              value: isSelected,
-              activeColor: Theme.of(context).colorScheme.primary,
-              onChanged: alreadyExists
-                  ? null
-                  : (bool? value) {
-                      setState(() {
-                        if (value == true) {
-                          _selectedSongIDs.add(song.id);
-                        } else {
-                          _selectedSongIDs.remove(song.id);
-                        }
-                      });
-                    },
-            );
-          },
+            ),
+          ],
         ),
       ),
     );
