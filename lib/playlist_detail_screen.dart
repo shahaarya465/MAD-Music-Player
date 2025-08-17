@@ -8,6 +8,7 @@ import 'player_manager.dart';
 import 'mini_player.dart';
 import 'add_songs_from_library_screen.dart';
 import 'theme.dart';
+import 'search_bar_widget.dart';
 
 class Song {
   final String id;
@@ -35,10 +36,22 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   Map<String, dynamic> _musicLibrary = {};
   late File _libraryFile;
 
+  final TextEditingController _searchController = TextEditingController();
+  List<Song> _filteredSongs = [];
+
   @override
   void initState() {
     super.initState();
     _loadSongs();
+    _searchController.addListener(() {
+      _filterSongs(_searchController.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSongs() async {
@@ -74,6 +87,22 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
     setState(() {
       _songs = songList;
+      _filteredSongs = songList;
+    });
+  }
+
+  void _filterSongs(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _filteredSongs = _songs;
+      });
+      return;
+    }
+    final results = _songs.where((song) {
+      return song.title.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+    setState(() {
+      _filteredSongs = results;
     });
   }
 
@@ -117,6 +146,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
     setState(() {
       _songs.removeWhere((s) => s.id == song.id);
+      _filteredSongs.removeWhere((s) => s.id == song.id);
       widget.playlist.songIDs.remove(song.id);
     });
   }
@@ -169,7 +199,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               onPressed: () {
-                Navigator.of(context).pop(); // Close the dialog first
+                Navigator.of(context).pop();
                 _deleteSongGlobally(song);
               },
             ),
@@ -254,64 +284,83 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 : AppThemes.lightGradient,
           ),
         ),
-        child: _songs.isEmpty
-            ? Center(
-                child: Text(
-                  widget.isAllSongsPlaylist
-                      ? "Your library is empty.\nImport songs from the main screen!"
-                      : "This playlist is empty.\nAdd songs to get started!",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, fontSize: 18),
-                ),
-              )
-            : ListView.builder(
-                itemCount: _songs.length,
-                itemBuilder: (context, index) {
-                  final song = _songs[index];
-                  return ListTile(
-                    leading: const Icon(Icons.music_note, color: Colors.white),
-                    title: Text(
-                      song.title,
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                    onTap: () {
-                      final songPathsToPlay = _songs
-                          .map((s) => s.path)
-                          .toList();
-                      playerManager.play(songPathsToPlay, index);
-                    },
-                    trailing: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'rename') {
-                          _showRenameDialog(song);
-                        } else if (value == 'remove') {
-                          // UPDATED: Logic split is now functional
-                          if (widget.isAllSongsPlaylist) {
-                            _showGlobalDeleteConfirmationDialog(song);
-                          } else {
-                            _removeSongFromPlaylist(song);
-                          }
-                        }
-                      },
-                      itemBuilder: (context) => <PopupMenuEntry<String>>[
-                        const PopupMenuItem(
-                          value: 'rename',
-                          child: Text('Rename'),
+        child: Column(
+          children: [
+            SearchBarWidget(
+              controller: _searchController,
+              hintText: 'Search in playlist...',
+              onChanged: _filterSongs,
+            ),
+            Expanded(
+              child: _songs.isEmpty
+                  ? Center(
+                      child: Text(
+                        widget.isAllSongsPlaylist
+                            ? "Your library is empty.\nImport songs from the main screen!"
+                            : "This playlist is empty.\nAdd some songs!",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 18,
                         ),
-                        PopupMenuItem(
-                          value: 'remove',
-                          child: Text(
-                            widget.isAllSongsPlaylist
-                                ? 'Delete from Library'
-                                : 'Remove from Playlist',
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: _filteredSongs.length,
+                      itemBuilder: (context, index) {
+                        final song = _filteredSongs[index];
+                        return ListTile(
+                          leading: const Icon(
+                            Icons.music_note,
+                            color: Colors.white,
                           ),
-                        ),
-                      ],
-                      icon: const Icon(Icons.more_vert, color: Colors.white70),
+                          title: Text(
+                            song.title,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                          onTap: () {
+                            final songPathsToPlay = _filteredSongs
+                                .map((s) => s.path)
+                                .toList();
+                            playerManager.play(songPathsToPlay, index);
+                          },
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (value) {
+                              if (value == 'rename') {
+                                _showRenameDialog(song);
+                              } else if (value == 'remove') {
+                                if (widget.isAllSongsPlaylist) {
+                                  _showGlobalDeleteConfirmationDialog(song);
+                                } else {
+                                  _removeSongFromPlaylist(song);
+                                }
+                              }
+                            },
+                            itemBuilder: (context) => <PopupMenuEntry<String>>[
+                              const PopupMenuItem(
+                                value: 'rename',
+                                child: Text('Rename'),
+                              ),
+                              PopupMenuItem(
+                                value: 'remove',
+                                child: Text(
+                                  widget.isAllSongsPlaylist
+                                      ? 'Delete from Library'
+                                      : 'Remove from Playlist',
+                                ),
+                              ),
+                            ],
+                            icon: const Icon(
+                              Icons.more_vert,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
+            ),
+          ],
+        ),
       ),
     );
   }

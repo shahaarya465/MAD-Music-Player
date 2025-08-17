@@ -11,6 +11,7 @@ import 'theme_manager.dart';
 import 'player_manager.dart';
 import 'mini_player.dart';
 import 'playlist_detail_screen.dart';
+import 'search_bar_widget.dart';
 import 'theme.dart';
 
 class PlaylistBrowserScreen extends StatefulWidget {
@@ -25,12 +26,24 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
   late Directory _songsDir;
-  List<String> _allSongIDs = []; // To hold all song IDs in the library
+  List<String> _allSongIDs = [];
+
+  final TextEditingController _searchController = TextEditingController();
+  List<Playlist> _filteredPlaylists = [];
 
   @override
   void initState() {
     super.initState();
     _initAndLoad();
+    _searchController.addListener(() {
+      _filterPlaylists(_searchController.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _initAndLoad() async {
@@ -48,7 +61,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     if (!await _songsDir.exists()) await _songsDir.create();
     if (!await libraryFile.exists()) await libraryFile.writeAsString('{}');
 
-    // Load user-created playlists
     final List<Playlist> loadedPlaylists = [];
     final entities = _playlistsDir.listSync();
     for (var entity in entities) {
@@ -57,12 +69,27 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       }
     }
 
-    // Load all song IDs from the library.json for the "All Songs" playlist
     final libraryContent = jsonDecode(await libraryFile.readAsString());
 
     setState(() {
       _playlists = loadedPlaylists;
+      _filteredPlaylists = loadedPlaylists;
       _allSongIDs = libraryContent.keys.toList().cast<String>();
+    });
+  }
+
+  void _filterPlaylists(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _filteredPlaylists = _playlists;
+      });
+      return;
+    }
+    final results = _playlists.where((playlist) {
+      return playlist.name.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+    setState(() {
+      _filteredPlaylists = results;
     });
   }
 
@@ -76,18 +103,14 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         (await getApplicationDocumentsDirectory()).path + '/MAD Music Player',
       );
       final libraryFile = File('${madMusicPlayerDir.path}/library.json');
-
-      // THE FIX: Explicitly create a new, modifiable map from the JSON content.
       final Map<String, dynamic> libraryContent = Map<String, dynamic>.from(
         jsonDecode(await libraryFile.readAsString()),
       );
-
       int importCount = 0;
 
       for (var file in result.files) {
         if (file.path != null) {
           final destPath = p.join(_songsDir.path, p.basename(file.path!));
-          // Check if the file already exists to avoid duplicates
           if (!await File(destPath).exists()) {
             await File(file.path!).copy(destPath);
             const uuid = Uuid();
@@ -99,12 +122,8 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         }
       }
 
-      // Now, write the updated map back to the file
       await libraryFile.writeAsString(jsonEncode(libraryContent));
-
-      // Refresh the UI to show the new counts
       await _initAndLoad();
-
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -160,8 +179,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
 
     await _initAndLoad();
   }
-
-  // In lib/playlist_browser_screen.dart
 
   Future<void> _showCreatePlaylistDialog() async {
     final controller = TextEditingController();
@@ -334,16 +351,35 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           ),
         ),
         child: SafeArea(
-          child: _isGridView
-              ? _buildGridView(allSongsPlaylist)
-              : _buildListView(allSongsPlaylist),
+          child: Column(
+            children: [
+              SearchBarWidget(
+                controller: _searchController,
+                hintText: 'Search playlists...',
+                onChanged: _filterPlaylists,
+              ),
+              Expanded(
+                child: _playlists.isEmpty && _allSongIDs.isEmpty
+                    ? const Center(
+                        child: Text(
+                          "Your library is empty.\nUse the Import button to get started!",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70, fontSize: 18),
+                        ),
+                      )
+                    : _isGridView
+                    ? _buildGridView(allSongsPlaylist)
+                    : _buildListView(allSongsPlaylist),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildListView(Playlist allSongsPlaylist) {
-    final fullList = [allSongsPlaylist, ..._playlists];
+    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
       itemCount: fullList.length,
@@ -416,7 +452,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
   }
 
   Widget _buildGridView(Playlist allSongsPlaylist) {
-    final fullList = [allSongsPlaylist, ..._playlists];
+    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
