@@ -1,4 +1,4 @@
-package com.cow2studios.music_player_app
+package com.mad
 
 import io.flutter.embedding.android.FlutterActivity
 
