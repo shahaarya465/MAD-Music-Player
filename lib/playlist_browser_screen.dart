@@ -459,6 +459,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 16.0,
         mainAxisSpacing: 16.0,
+        childAspectRatio: 2.7,
       ),
       itemCount: fullList.length,
       itemBuilder: (context, index) {
