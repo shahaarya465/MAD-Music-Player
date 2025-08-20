@@ -22,21 +22,20 @@ class PlaylistBrowserScreen extends StatefulWidget {
 }
 
 class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
-  bool _isGridView = false;
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
   late Directory _songsDir;
-  List<String> _allSongIDs = [];
 
   final TextEditingController _searchController = TextEditingController();
-  List<Playlist> _filteredPlaylists = [];
+  List<Song> _allSongs = [];
+  List<Song> _searchResults = [];
 
   @override
   void initState() {
     super.initState();
     _initAndLoad();
     _searchController.addListener(() {
-      _filterPlaylists(_searchController.text);
+      _searchLibrary(_searchController.text);
     });
   }
 
@@ -70,26 +69,32 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     }
 
     final libraryContent = jsonDecode(await libraryFile.readAsString());
+    final List<Song> allSongsList = [];
+    libraryContent.forEach((id, details) {
+      allSongsList.add(
+        Song(id: id, title: details['title'], path: details['path']),
+      );
+    });
 
     setState(() {
       _playlists = loadedPlaylists;
-      _filteredPlaylists = loadedPlaylists;
-      _allSongIDs = libraryContent.keys.toList().cast<String>();
+      _allSongs = allSongsList;
     });
   }
 
-  void _filterPlaylists(String query) {
+  void _searchLibrary(String query) {
     if (query.isEmpty) {
       setState(() {
-        _filteredPlaylists = _playlists;
+        _searchResults = [];
       });
       return;
     }
-    final results = _playlists.where((playlist) {
-      return playlist.name.toLowerCase().contains(query.toLowerCase());
+    final results = _allSongs.where((song) {
+      return song.title.toLowerCase().contains(query.toLowerCase());
     }).toList();
+
     setState(() {
-      _filteredPlaylists = results;
+      _searchResults = results;
     });
   }
 
@@ -153,33 +158,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     await _initAndLoad();
   }
 
-  Future<void> _deletePlaylist(Playlist playlist) async {
-    await playlist.file.delete();
-    await _initAndLoad();
-  }
-
-  Future<void> _renamePlaylist(Playlist playlist, String newName) async {
-    final trimmedName = newName.trim();
-    if (trimmedName.isEmpty || trimmedName == playlist.name) return;
-
-    final newFile = File('${_playlistsDir.path}/$trimmedName.json');
-    if (await newFile.exists()) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('A playlist named "$trimmedName" already exists.'),
-          ),
-        );
-      }
-      return;
-    }
-    final updatedContent = {"name": trimmedName, "songIDs": playlist.songIDs};
-    await playlist.file.rename(newFile.path);
-    await newFile.writeAsString(jsonEncode(updatedContent));
-
-    await _initAndLoad();
-  }
-
   Future<void> _showCreatePlaylistDialog() async {
     final controller = TextEditingController();
     return showDialog(
@@ -215,76 +193,10 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     );
   }
 
-  Future<void> _showRenameDialog(Playlist playlist) async {
-    final controller = TextEditingController(text: playlist.name);
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Rename Playlist'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(hintText: "Enter new name"),
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: const Text('Rename'),
-              onPressed: () {
-                _renamePlaylist(playlist, controller.text);
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showDeleteConfirmationDialog(Playlist playlist) async {
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Playlist?'),
-          content: Text(
-            'Are you sure you want to delete the playlist "${playlist.name}"? This cannot be undone.',
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: Text(
-                'Delete',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              onPressed: () {
-                _deletePlaylist(playlist);
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeManager = Provider.of<ThemeManager>(context);
     final isDarkMode = themeManager.themeMode == ThemeMode.dark;
-
-    final allSongsPlaylist = Playlist(
-      name: "All Songs",
-      songIDs: _allSongIDs,
-      file: File(''),
-    );
 
     return Scaffold(
       appBar: AppBar(
@@ -300,12 +212,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           ),
           IconButton(
             icon: Icon(
-              _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
-            ),
-            onPressed: () => setState(() => _isGridView = !_isGridView),
-          ),
-          IconButton(
-            icon: Icon(
               isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
             ),
             onPressed: () => themeManager.toggleTheme(),
@@ -317,6 +223,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         label: const Text('Import Songs'),
         icon: const Icon(Icons.add_to_photos_rounded),
       ),
+      // ADDED: MiniPlayer is back
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, playerManager, child) {
           if (playerManager.currentSongTitle == null)
@@ -351,26 +258,45 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           ),
         ),
         child: SafeArea(
-          child: Column(
-            children: [
-              SearchBarWidget(
-                controller: _searchController,
-                hintText: 'Search playlists...',
-                onChanged: _filterPlaylists,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: SearchBarWidget(
+                  controller: _searchController,
+                  hintText: 'Search songs, playlists...',
+                  onChanged: _searchLibrary,
+                ),
               ),
-              Expanded(
-                child: _playlists.isEmpty && _allSongIDs.isEmpty
-                    ? const Center(
-                        child: Text(
-                          "Your library is empty.\nUse the Import button to get started!",
-                          textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white70, fontSize: 18),
-                        ),
-                      )
-                    : _isGridView
-                    ? _buildGridView(allSongsPlaylist)
-                    : _buildListView(allSongsPlaylist),
-              ),
+              if (_searchController.text.isNotEmpty)
+                _buildSliverSearchResults()
+              else ...[
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Text(
+                      'Playlists',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                _buildPlaylistsGrid(),
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
+                    child: Text(
+                      'Recently Played',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                _buildRecentsGrid(),
+              ],
             ],
           ),
         ),
@@ -378,173 +304,137 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     );
   }
 
-  Widget _buildListView(Playlist allSongsPlaylist) {
-    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
-    return ListView.builder(
-      padding: const EdgeInsets.all(16.0),
-      itemCount: fullList.length,
-      itemBuilder: (context, index) {
-        final playlist = fullList[index];
-        final isAllSongs = index == 0;
-        return Card(
-          color: Colors.white.withOpacity(0.1),
-          margin: const EdgeInsets.only(bottom: 12.0),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: ListTile(
-            leading: Icon(
-              isAllSongs
-                  ? Icons.library_music_rounded
-                  : Icons.music_note_rounded,
-              color: Colors.white,
-              size: 30,
-            ),
-            title: Text(
-              playlist.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+  Widget _buildPlaylistsGrid() {
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      sliver: SliverGrid(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12.0,
+          mainAxisSpacing: 12.0,
+          // UPDATED: Aspect ratio changed to make items shorter
+          childAspectRatio: 6.0,
+        ),
+        delegate: SliverChildBuilderDelegate((context, index) {
+          final playlist = _playlists[index];
+          return Card(
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        PlaylistDetailScreen(playlist: playlist),
+                  ),
+                );
+                _initAndLoad();
+              },
+              child: Row(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1,
+                    child: Container(
+                      color: Colors.grey.withOpacity(0.3),
+                      child: const Icon(Icons.music_note, size: 30),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      playlist.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
               ),
             ),
-            subtitle: Text(
-              '${playlist.songIDs.length} songs',
-              style: const TextStyle(color: Colors.white70),
+          );
+        }, childCount: _playlists.length),
+      ),
+    );
+  }
+
+  Widget _buildRecentsGrid() {
+    return Consumer<PlayerManager>(
+      builder: (context, playerManager, child) {
+        final recentSongIDs = playerManager.recentlyPlayedSongIDs;
+        final recentSongs = recentSongIDs
+            .map(
+              (id) => _allSongs.firstWhere(
+                (song) => song.id == id,
+                orElse: () => Song(id: '', title: '', path: ''),
+              ),
+            )
+            .where((song) => song.id.isNotEmpty)
+            .toList();
+
+        if (recentSongs.isEmpty) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
+
+        return SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          sliver: SliverGrid(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12.0,
+              mainAxisSpacing: 12.0,
+              // UPDATED: Aspect ratio changed to make items shorter
+              childAspectRatio: 6.0,
             ),
-            trailing: isAllSongs
-                ? null
-                : PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'rename')
-                        _showRenameDialog(playlist);
-                      else if (value == 'delete')
-                        _showDeleteConfirmationDialog(playlist);
-                    },
-                    itemBuilder: (BuildContext context) =>
-                        <PopupMenuEntry<String>>[
-                          const PopupMenuItem<String>(
-                            value: 'rename',
-                            child: Text('Rename'),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
-                        ],
-                    icon: const Icon(Icons.more_vert, color: Colors.white70),
-                  ),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PlaylistDetailScreen(
-                    playlist: playlist,
-                    isAllSongsPlaylist: isAllSongs,
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final song = recentSongs[index];
+              return Card(
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: () {
+                    playerManager.play(recentSongs, index);
+                  },
+                  child: Row(
+                    children: [
+                      AspectRatio(
+                        aspectRatio: 1,
+                        child: Container(
+                          color: Colors.grey.withOpacity(0.3),
+                          child: const Icon(Icons.play_arrow, size: 30),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          song.title,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
-              _initAndLoad();
-            },
+            }, childCount: recentSongs.length),
           ),
         );
       },
     );
   }
 
-  Widget _buildGridView(Playlist allSongsPlaylist) {
-    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
-    return GridView.builder(
-      padding: const EdgeInsets.all(16.0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16.0,
-        mainAxisSpacing: 16.0,
-        childAspectRatio: 2.7,
-      ),
-      itemCount: fullList.length,
-      itemBuilder: (context, index) {
-        final playlist = fullList[index];
-        final isAllSongs = index == 0;
-        return Card(
-          color: Colors.white.withOpacity(0.1),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: InkWell(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PlaylistDetailScreen(
-                    playlist: playlist,
-                    isAllSongsPlaylist: isAllSongs,
-                  ),
-                ),
-              );
-              _initAndLoad();
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        isAllSongs
-                            ? Icons.library_music_rounded
-                            : Icons.queue_music_rounded,
-                        color: Colors.white,
-                        size: 40,
-                      ),
-                      const Spacer(),
-                      Text(
-                        playlist.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      Text(
-                        '${playlist.songIDs.length} songs',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isAllSongs)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'rename')
-                          _showRenameDialog(playlist);
-                        else if (value == 'delete')
-                          _showDeleteConfirmationDialog(playlist);
-                      },
-                      itemBuilder: (BuildContext context) =>
-                          <PopupMenuEntry<String>>[
-                            const PopupMenuItem<String>(
-                              value: 'rename',
-                              child: Text('Rename'),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'delete',
-                              child: Text('Delete'),
-                            ),
-                          ],
-                      icon: const Icon(Icons.more_vert, color: Colors.white70),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+  Widget _buildSliverSearchResults() {
+    final playerManager = Provider.of<PlayerManager>(context, listen: false);
+    return SliverList(
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final song = _searchResults[index];
+        return ListTile(
+          leading: const Icon(Icons.music_note, color: Colors.white),
+          title: Text(song.title, style: const TextStyle(color: Colors.white)),
+          onTap: () {
+            playerManager.play(_searchResults, index);
+          },
         );
-      },
+      }, childCount: _searchResults.length),
     );
   }
 }

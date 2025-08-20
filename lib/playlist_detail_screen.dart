@@ -319,10 +319,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             style: const TextStyle(color: Colors.white),
                           ),
                           onTap: () {
-                            final songPathsToPlay = _filteredSongs
-                                .map((s) => s.path)
-                                .toList();
-                            playerManager.play(songPathsToPlay, index);
+                            playerManager.play(_filteredSongs, index);
                           },
                           trailing: PopupMenuButton<String>(
                             onSelected: (value) {
