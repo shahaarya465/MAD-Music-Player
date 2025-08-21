@@ -39,7 +39,202 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<Song> _filteredSongs = [];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSongs();
+    _searchController.addListener(() {
+      _filterSongs(_searchController.text);
+    });
+  }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadSongs() async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final madMusicPlayerDir = Directory(
+      '${documentsDir.path}/MAD Music Player',
+    );
+    _libraryFile = File('${madMusicPlayerDir.path}/library.json');
+
+    if (await _libraryFile.exists()) {
+      _musicLibrary = jsonDecode(await _libraryFile.readAsString());
+    } else {
+      await _libraryFile.writeAsString('{}');
+      _musicLibrary = {};
+    }
+
+    final songIdsToLoad = widget.isAllSongsPlaylist
+        ? _musicLibrary.keys.toList()
+        : widget.playlist.songIDs;
+
+    final songList = <Song>[];
+    for (String songId in songIdsToLoad) {
+      if (_musicLibrary.containsKey(songId)) {
+        songList.add(
+          Song(
+            id: songId,
+            title: _musicLibrary[songId]['title'],
+            path: _musicLibrary[songId]['path'],
+          ),
+        );
+      }
+    }
+
+    setState(() {
+      _songs = songList;
+      _filteredSongs = songList;
+    });
+  }
+
+  void _filterSongs(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _filteredSongs = _songs;
+      });
+      return;
+    }
+    final results = _songs.where((song) {
+      return song.title.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+    setState(() {
+      _filteredSongs = results;
+    });
+  }
+
+  Future<void> _addSongsToPlaylist() async {
+    final selectedSongIDs = await Navigator.push<Set<String>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddSongsFromLibraryScreen(
+          existingSongIDs: _songs.map((s) => s.id).toSet(),
+        ),
+      ),
+    );
+
+    if (selectedSongIDs != null && selectedSongIDs.isNotEmpty) {
+      widget.playlist.songIDs.addAll(selectedSongIDs);
+      final playlistJson = {
+        "name": widget.playlist.name,
+        "songIDs": widget.playlist.songIDs,
+      };
+      await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
+      await _loadSongs();
+    }
+  }
+
+  Future<void> _renameSong(Song song, String newTitle) async {
+    if (newTitle.trim().isEmpty || newTitle.trim() == song.title) return;
+    if (_musicLibrary.containsKey(song.id)) {
+      _musicLibrary[song.id]['title'] = newTitle.trim();
+      await _libraryFile.writeAsString(jsonEncode(_musicLibrary));
+      await _loadSongs();
+    }
+  }
+
+  Future<void> _removeSongFromPlaylist(Song song) async {
+    final updatedSongIDs = List<String>.from(widget.playlist.songIDs)
+      ..remove(song.id);
+    final playlistJson = {
+      "name": widget.playlist.name,
+      "songIDs": updatedSongIDs,
+    };
+    await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
+    setState(() {
+      _songs.removeWhere((s) => s.id == song.id);
+      _filteredSongs.removeWhere((s) => s.id == song.id);
+      widget.playlist.songIDs.remove(song.id);
+    });
+  }
+
+  Future<void> _deleteSongGlobally(Song songToDelete) async {
+    final songFile = File(songToDelete.path);
+    if (await songFile.exists()) {
+      await songFile.delete();
+    }
+
+    _musicLibrary.remove(songToDelete.id);
+    await _libraryFile.writeAsString(jsonEncode(_musicLibrary));
+
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final playlistsDir = Directory(
+      '${documentsDir.path}/MAD Music Player/Playlists',
+    );
+    final playlistFiles = playlistsDir.listSync().whereType<File>().toList();
+
+    for (var file in playlistFiles) {
+      final playlist = await Playlist.fromFile(file);
+      if (playlist.songIDs.contains(songToDelete.id)) {
+        final updatedIDs = List<String>.from(playlist.songIDs)
+          ..remove(songToDelete.id);
+        final playlistJson = {"name": playlist.name, "songIDs": updatedIDs};
+        await file.writeAsString(jsonEncode(playlistJson));
+      }
+    }
+
+    await _loadSongs();
+  }
+
+  Future<void> _showGlobalDeleteConfirmationDialog(Song song) async {
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete from Library?'),
+          content: Text(
+            'Are you sure you want to permanently delete "${song.title}"? It will be removed from all playlists.',
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onPressed: () {
+                Navigator.of(context).pop();
+                _deleteSongGlobally(song);
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showRenameDialog(Song song) async {
+    final controller = TextEditingController(text: song.title);
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Song'),
+        content: Container(
+          width: double.maxFinite,
+          child: TextField(controller: controller, autofocus: true),
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          TextButton(
+            child: const Text('Rename'),
+            onPressed: () {
+              _renameSong(song, controller.text);
+              Navigator.of(context).pop();
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,8 +311,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             ),
                             title: Text(song.title, style: Theme.of(context).textTheme.bodyLarge),
                             onTap: () {
-                              final songPathsToPlay = _filteredSongs.map((s) => s.path).toList();
-                              playerManager.play(songPathsToPlay, index);
+                              playerManager.play(_filteredSongs, index);
                             },
                             trailing: PopupMenuButton<String>(
                               onSelected: (value) {
@@ -148,73 +342,3 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     );
   }
 }
-      "songIDs": updatedSongIDs,
-    };
-    await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
-    setState(() {
-      _songs.removeWhere((s) => s.id == song.id);
-      _filteredSongs.removeWhere((s) => s.id == song.id);
-      widget.playlist.songIDs.remove(song.id);
-    });
-  }
-
-  Future<void> _deleteSongGlobally(Song songToDelete) async {
-    final songFile = File(songToDelete.path);
-    if (await songFile.exists()) {
-      await songFile.delete();
-    }
-
-    _musicLibrary.remove(songToDelete.id);
-    await _libraryFile.writeAsString(jsonEncode(_musicLibrary));
-
-    final documentsDir = await getApplicationDocumentsDirectory();
-    final playlistsDir = Directory(
-      '${documentsDir.path}/MAD Music Player/Playlists',
-    );
-    final playlistFiles = playlistsDir.listSync().whereType<File>().toList();
-
-    for (var file in playlistFiles) {
-      final playlist = await Playlist.fromFile(file);
-      if (playlist.songIDs.contains(songToDelete.id)) {
-        final updatedIDs = List<String>.from(playlist.songIDs)
-          ..remove(songToDelete.id);
-        final playlistJson = {"name": playlist.name, "songIDs": updatedIDs};
-        await file.writeAsString(jsonEncode(playlistJson));
-      }
-    }
-
-    await _loadSongs();
-  }
-
-  Future<void> _showGlobalDeleteConfirmationDialog(Song song) async {
-    return showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete from Library?'),
-          content: Text(
-            'Are you sure you want to permanently delete "${song.title}"? It will be removed from all playlists.',
-          ),
-          actions: [
-            TextButton(
-              child: const Text('Cancel'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            TextButton(
-              child: Text(
-                'Delete',
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-                _deleteSongGlobally(song);
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  Future<void> _showRenameDialog(Song song) async {
-    final controller = TextEditingController(text: song.title);
