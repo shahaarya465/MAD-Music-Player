@@ -206,7 +206,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.create_new_folder_outlined),
+            icon: Icon(Icons.create_new_folder_outlined, color: Theme.of(context).iconTheme.color),
             tooltip: 'New Playlist',
             onPressed: _showCreatePlaylistDialog,
           ),
@@ -220,8 +220,11 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _importSongsToLibrary,
-        label: const Text('Import Songs'),
-        icon: const Icon(Icons.add_to_photos_rounded),
+        label: const Text(
+          'Import Songs',
+          style: TextStyle(color: Colors.white),
+        ),
+        icon: Icon(Icons.add_to_photos_rounded, color: Theme.of(context).iconTheme.color),
       ),
       // ADDED: MiniPlayer is back
       bottomNavigationBar: Consumer<PlayerManager>(
@@ -258,45 +261,26 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           ),
         ),
         child: SafeArea(
-          child: CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: SearchBarWidget(
-                  controller: _searchController,
-                  hintText: 'Search songs, playlists...',
-                  onChanged: _searchLibrary,
-                ),
+          child: Column(
+            children: [
+              SearchBarWidget(
+                controller: _searchController,
+                hintText: 'Search playlists...',
+                onChanged: _filterPlaylists,
               ),
-              if (_searchController.text.isNotEmpty)
-                _buildSliverSearchResults()
-              else ...[
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    child: Text(
-                      'Playlists',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                _buildPlaylistsGrid(),
-                const SliverToBoxAdapter(
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(16, 24, 16, 8),
-                    child: Text(
-                      'Recently Played',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-                _buildRecentsGrid(),
-              ],
+              Expanded(
+                child: _playlists.isEmpty && _allSongIDs.isEmpty
+                    ? const Center(
+                        child: Text(
+                          "Your library is empty.\nUse the Import button to get started!",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70, fontSize: 18),
+                        ),
+                      )
+                    : _isGridView
+                    ? _buildGridView(allSongsPlaylist)
+                    : _buildListView(allSongsPlaylist),
+              ),
             ],
           ),
         ),
@@ -304,118 +288,170 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     );
   }
 
-  Widget _buildPlaylistsGrid() {
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      sliver: SliverGrid(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          crossAxisSpacing: 12.0,
-          mainAxisSpacing: 12.0,
-          // UPDATED: Aspect ratio changed to make items shorter
-          childAspectRatio: 6.0,
-        ),
-        delegate: SliverChildBuilderDelegate((context, index) {
-          final playlist = _playlists[index];
-          return Card(
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        PlaylistDetailScreen(playlist: playlist),
-                  ),
-                );
-                _initAndLoad();
-              },
-              child: Row(
-                children: [
-                  AspectRatio(
-                    aspectRatio: 1,
-                    child: Container(
-                      color: Colors.grey.withOpacity(0.3),
-                      child: const Icon(Icons.music_note, size: 30),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      playlist.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+  Widget _buildListView(Playlist allSongsPlaylist) {
+    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
+    return ListView.builder(
+      padding: const EdgeInsets.all(16.0),
+      itemCount: fullList.length,
+      itemBuilder: (context, index) {
+        final playlist = fullList[index];
+        final isAllSongs = index == 0;
+        return Card(
+          color: Colors.white.withOpacity(0.1),
+          margin: const EdgeInsets.only(bottom: 12.0),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: ListTile(
+            leading: Icon(
+              isAllSongs
+                  ? Icons.library_music_rounded
+                  : Icons.music_note_rounded,
+              color: Colors.white,
+              size: 30,
+            ),
+            title: Text(
+              playlist.name,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          );
-        }, childCount: _playlists.length),
-      ),
+            subtitle: Text(
+              '${playlist.songIDs.length} songs',
+              style: const TextStyle(color: Colors.white70),
+            ),
+            trailing: isAllSongs
+                ? null
+                : PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'rename')
+                        _showRenameDialog(playlist);
+                      else if (value == 'delete')
+                        _showDeleteConfirmationDialog(playlist);
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'rename',
+                            child: Text('Rename'),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
+                    icon: const Icon(Icons.more_vert, color: Colors.white70),
+                  ),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PlaylistDetailScreen(
+                    playlist: playlist,
+                    isAllSongsPlaylist: isAllSongs,
+                  ),
+                ),
+              );
+              _initAndLoad();
+            },
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildRecentsGrid() {
-    return Consumer<PlayerManager>(
-      builder: (context, playerManager, child) {
-        final recentSongIDs = playerManager.recentlyPlayedSongIDs;
-        final recentSongs = recentSongIDs
-            .map(
-              (id) => _allSongs.firstWhere(
-                (song) => song.id == id,
-                orElse: () => Song(id: '', title: '', path: ''),
-              ),
-            )
-            .where((song) => song.id.isNotEmpty)
-            .toList();
-
-        if (recentSongs.isEmpty) {
-          return const SliverToBoxAdapter(child: SizedBox.shrink());
-        }
-
-        return SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              crossAxisSpacing: 12.0,
-              mainAxisSpacing: 12.0,
-              // UPDATED: Aspect ratio changed to make items shorter
-              childAspectRatio: 6.0,
-            ),
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final song = recentSongs[index];
-              return Card(
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: () {
-                    playerManager.play(recentSongs, index);
-                  },
-                  child: Row(
+  Widget _buildGridView(Playlist allSongsPlaylist) {
+    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
+    return GridView.builder(
+      padding: const EdgeInsets.all(16.0),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16.0,
+        mainAxisSpacing: 16.0,
+        childAspectRatio: 2.7,
+      ),
+      itemCount: fullList.length,
+      itemBuilder: (context, index) {
+        final playlist = fullList[index];
+        final isAllSongs = index == 0;
+        return Card(
+          color: Colors.white.withOpacity(0.1),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: InkWell(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => PlaylistDetailScreen(
+                    playlist: playlist,
+                    isAllSongsPlaylist: isAllSongs,
+                  ),
+                ),
+              );
+              _initAndLoad();
+            },
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      AspectRatio(
-                        aspectRatio: 1,
-                        child: Container(
-                          color: Colors.grey.withOpacity(0.3),
-                          child: const Icon(Icons.play_arrow, size: 30),
+                      Icon(
+                        isAllSongs
+                            ? Icons.library_music_rounded
+                            : Icons.queue_music_rounded,
+                        color: Colors.white,
+                        size: 40,
+                      ),
+                      const Spacer(),
+                      Text(
+                        playlist.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          song.title,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                      Text(
+                        '${playlist.songIDs.length} songs',
+                        style: const TextStyle(color: Colors.white70),
                       ),
                     ],
                   ),
                 ),
-              );
-            }, childCount: recentSongs.length),
+                if (!isAllSongs)
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'rename')
+                          _showRenameDialog(playlist);
+                        else if (value == 'delete')
+                          _showDeleteConfirmationDialog(playlist);
+                      },
+                      itemBuilder: (BuildContext context) =>
+                          <PopupMenuEntry<String>>[
+                            const PopupMenuItem<String>(
+                              value: 'rename',
+                              child: Text('Rename'),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                          ],
+                      icon: const Icon(Icons.more_vert, color: Colors.white70),
+                    ),
+                  ),
+              ],
+            ),
           ),
         );
       },

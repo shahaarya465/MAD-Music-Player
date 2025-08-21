@@ -25,7 +25,7 @@ class SearchBarWidget extends StatelessWidget {
           controller: controller,
           onChanged: onChanged,
           decoration: InputDecoration(
-            prefixIcon: const Icon(Icons.search),
+            prefixIcon: Icon(Icons.search, color: Theme.of(context).iconTheme.color),
             hintText: hintText,
             border: InputBorder.none,
             contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
