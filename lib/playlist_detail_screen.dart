@@ -239,6 +239,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final playerManager = Provider.of<PlayerManager>(context, listen: false);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -250,116 +251,93 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ? null
           : FloatingActionButton.extended(
               onPressed: _addSongsToPlaylist,
-              label: const Text("Add Songs"),
-              icon: const Icon(Icons.add_rounded),
+              icon: Icon(Icons.add, color: Theme.of(context).floatingActionButtonTheme.foregroundColor),
+              label: Text('Add', style: Theme.of(context).textTheme.bodyLarge),
             ),
       bottomNavigationBar: Consumer<PlayerManager>(
-        builder: (context, playerManager, child) {
-          if (playerManager.currentSongTitle == null)
-            return const SizedBox.shrink();
+        builder: (context, pm, child) {
+          if (pm.currentSongTitle == null) return const SizedBox.shrink();
           return MiniPlayer(
-            songTitle: playerManager.currentSongTitle!,
-            isPlaying: playerManager.isPlaying,
-            position: playerManager.position,
-            duration: playerManager.duration,
-            onPlayPause: () => playerManager.isPlaying
-                ? playerManager.pause()
-                : playerManager.resume(),
-            onPrevious: playerManager.playPrevious,
-            onNext: playerManager.playNext,
-            onSeek: (value) =>
-                playerManager.seek(Duration(seconds: value.toInt())),
-            onSeekBackward: playerManager.seekBackward10,
-            onSeekForward: playerManager.seekForward10,
+            songTitle: pm.currentSongTitle!,
+            isPlaying: pm.isPlaying,
+            position: pm.position,
+            duration: pm.duration,
+            onPlayPause: () => pm.isPlaying ? pm.pause() : pm.resume(),
+            onPrevious: pm.playPrevious,
+            onNext: pm.playNext,
+            onSeek: (value) => pm.seek(Duration(seconds: value.toInt())),
+            onSeekBackward: pm.seekBackward10,
+            onSeekForward: pm.seekForward10,
           );
         },
       ),
       body: Container(
+        width: double.infinity,
+        height: double.infinity,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: Theme.of(context).brightness == Brightness.dark
-                ? AppThemes.darkGradient
-                : AppThemes.lightGradient,
+            colors: isDarkMode ? AppThemes.darkGradient : AppThemes.lightGradient,
           ),
         ),
-        child: Column(
-          children: [
-            SearchBarWidget(
-              controller: _searchController,
-              hintText: 'Search in playlist...',
-              onChanged: _filterSongs,
-            ),
-            Expanded(
-              child: _songs.isEmpty
-                  ? Center(
-                      child: Text(
-                        widget.isAllSongsPlaylist
-                            ? "Your library is empty.\nImport songs from the main screen!"
-                            : "This playlist is empty.\nAdd some songs!",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 18,
+        child: SafeArea(
+          child: Column(
+            children: [
+              SearchBarWidget(
+                controller: _searchController,
+                hintText: 'Search in playlist...',
+                onChanged: _filterSongs,
+              ),
+              Expanded(
+                child: _songs.isEmpty
+                    ? Center(
+                        child: Text(
+                          widget.isAllSongsPlaylist
+                              ? "Your library is empty.\nImport songs from the main screen!"
+                              : "This playlist is empty.\nAdd some songs!",
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 18),
                         ),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _filteredSongs.length,
-                      itemBuilder: (context, index) {
-                        final song = _filteredSongs[index];
-                        return ListTile(
-                          leading: const Icon(
-                            Icons.music_note,
-                            color: Colors.white,
-                          ),
-                          title: Text(
-                            song.title,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          onTap: () {
-                            final songPathsToPlay = _filteredSongs
-                                .map((s) => s.path)
-                                .toList();
-                            playerManager.play(songPathsToPlay, index);
-                          },
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (value) {
-                              if (value == 'rename') {
-                                _showRenameDialog(song);
-                              } else if (value == 'remove') {
-                                if (widget.isAllSongsPlaylist) {
-                                  _showGlobalDeleteConfirmationDialog(song);
-                                } else {
-                                  _removeSongFromPlaylist(song);
-                                }
-                              }
-                            },
-                            itemBuilder: (context) => <PopupMenuEntry<String>>[
-                              const PopupMenuItem(
-                                value: 'rename',
-                                child: Text('Rename'),
-                              ),
-                              PopupMenuItem(
-                                value: 'remove',
-                                child: Text(
-                                  widget.isAllSongsPlaylist
-                                      ? 'Delete from Library'
-                                      : 'Remove from Playlist',
-                                ),
-                              ),
-                            ],
-                            icon: const Icon(
-                              Icons.more_vert,
-                              color: Colors.white70,
+                      )
+                    : ListView.builder(
+                        itemCount: _filteredSongs.length,
+                        itemBuilder: (context, index) {
+                          final song = _filteredSongs[index];
+                          return ListTile(
+                            leading: Icon(
+                              Icons.music_note,
+                              color: Theme.of(context).iconTheme.color,
                             ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
+                            title: Text(song.title, style: Theme.of(context).textTheme.bodyLarge),
+                            onTap: () {
+                              final songPathsToPlay = _filteredSongs.map((s) => s.path).toList();
+                              playerManager.play(songPathsToPlay, index);
+                            },
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'rename') {
+                                  _showRenameDialog(song);
+                                } else if (value == 'remove') {
+                                  if (widget.isAllSongsPlaylist) {
+                                    _showGlobalDeleteConfirmationDialog(song);
+                                  } else {
+                                    _removeSongFromPlaylist(song);
+                                  }
+                                }
+                              },
+                              itemBuilder: (context) => <PopupMenuEntry<String>>[
+                                const PopupMenuItem(value: 'rename', child: Text('Rename')),
+                                PopupMenuItem(value: 'remove', child: Text(widget.isAllSongsPlaylist ? 'Delete from Library' : 'Remove from Playlist')),
+                              ],
+                              icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );

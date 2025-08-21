@@ -294,7 +294,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.create_new_folder_outlined),
+            icon: Icon(Icons.create_new_folder_outlined, color: Theme.of(context).iconTheme.color),
             tooltip: 'New Playlist',
             onPressed: _showCreatePlaylistDialog,
           ),
@@ -314,8 +314,11 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _importSongsToLibrary,
-        label: const Text('Import Songs'),
-        icon: const Icon(Icons.add_to_photos_rounded),
+        label: const Text(
+          'Import Songs',
+          style: TextStyle(color: Colors.white),
+        ),
+        icon: Icon(Icons.add_to_photos_rounded, color: Theme.of(context).iconTheme.color),
       ),
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, playerManager, child) {
@@ -360,11 +363,11 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               ),
               Expanded(
                 child: _playlists.isEmpty && _allSongIDs.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           "Your library is empty.\nUse the Import button to get started!",
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white70, fontSize: 18),
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 18),
                         ),
                       )
                     : _isGridView
@@ -387,7 +390,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         final playlist = fullList[index];
         final isAllSongs = index == 0;
         return Card(
-          color: Colors.white.withOpacity(0.1),
+          color: Theme.of(context).cardColor.withOpacity(0.08),
           margin: const EdgeInsets.only(bottom: 12.0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -397,19 +400,16 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               isAllSongs
                   ? Icons.library_music_rounded
                   : Icons.music_note_rounded,
-              color: Colors.white,
+              color: Theme.of(context).iconTheme.color,
               size: 30,
             ),
             title: Text(
               playlist.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
               '${playlist.songIDs.length} songs',
-              style: const TextStyle(color: Colors.white70),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             trailing: isAllSongs
                 ? null
@@ -431,7 +431,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                             child: Text('Delete'),
                           ),
                         ],
-                    icon: const Icon(Icons.more_vert, color: Colors.white70),
+                    icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color?.withOpacity(0.7)),
                   ),
             onTap: () async {
               await Navigator.push(
@@ -466,7 +466,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         final playlist = fullList[index];
         final isAllSongs = index == 0;
         return Card(
-          color: Colors.white.withOpacity(0.1),
+          color: Theme.of(context).cardColor.withOpacity(0.08),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -496,21 +496,20 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                         isAllSongs
                             ? Icons.library_music_rounded
                             : Icons.queue_music_rounded,
-                        color: Colors.white,
+                        color: Theme.of(context).iconTheme.color,
                         size: 40,
                       ),
                       const Spacer(),
                       Text(
                         playlist.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       Text(
                         '${playlist.songIDs.length} songs',
-                        style: const TextStyle(color: Colors.white70),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
@@ -537,7 +536,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                               child: Text('Delete'),
                             ),
                           ],
-                      icon: const Icon(Icons.more_vert, color: Colors.white70),
+                      icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color?.withOpacity(0.7)),
                     ),
                   ),
               ],
