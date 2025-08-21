@@ -22,20 +22,21 @@ class PlaylistBrowserScreen extends StatefulWidget {
 }
 
 class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
+  bool _isGridView = false;
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
   late Directory _songsDir;
+  List<String> _allSongIDs = [];
 
   final TextEditingController _searchController = TextEditingController();
-  List<Song> _allSongs = [];
-  List<Song> _searchResults = [];
+  List<Playlist> _filteredPlaylists = [];
 
   @override
   void initState() {
     super.initState();
     _initAndLoad();
     _searchController.addListener(() {
-      _searchLibrary(_searchController.text);
+      _filterPlaylists(_searchController.text);
     });
   }
 
@@ -69,32 +70,26 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     }
 
     final libraryContent = jsonDecode(await libraryFile.readAsString());
-    final List<Song> allSongsList = [];
-    libraryContent.forEach((id, details) {
-      allSongsList.add(
-        Song(id: id, title: details['title'], path: details['path']),
-      );
-    });
 
     setState(() {
       _playlists = loadedPlaylists;
-      _allSongs = allSongsList;
+      _filteredPlaylists = loadedPlaylists;
+      _allSongIDs = libraryContent.keys.toList().cast<String>();
     });
   }
 
-  void _searchLibrary(String query) {
+  void _filterPlaylists(String query) {
     if (query.isEmpty) {
       setState(() {
-        _searchResults = [];
+        _filteredPlaylists = _playlists;
       });
       return;
     }
-    final results = _allSongs.where((song) {
-      return song.title.toLowerCase().contains(query.toLowerCase());
+    final results = _playlists.where((playlist) {
+      return playlist.name.toLowerCase().contains(query.toLowerCase());
     }).toList();
-
     setState(() {
-      _searchResults = results;
+      _filteredPlaylists = results;
     });
   }
 
@@ -158,6 +153,33 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     await _initAndLoad();
   }
 
+  Future<void> _deletePlaylist(Playlist playlist) async {
+    await playlist.file.delete();
+    await _initAndLoad();
+  }
+
+  Future<void> _renamePlaylist(Playlist playlist, String newName) async {
+    final trimmedName = newName.trim();
+    if (trimmedName.isEmpty || trimmedName == playlist.name) return;
+
+    final newFile = File('${_playlistsDir.path}/$trimmedName.json');
+    if (await newFile.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('A playlist named "$trimmedName" already exists.'),
+          ),
+        );
+      }
+      return;
+    }
+    final updatedContent = {"name": trimmedName, "songIDs": playlist.songIDs};
+    await playlist.file.rename(newFile.path);
+    await newFile.writeAsString(jsonEncode(updatedContent));
+
+    await _initAndLoad();
+  }
+
   Future<void> _showCreatePlaylistDialog() async {
     final controller = TextEditingController();
     return showDialog(
@@ -193,10 +215,76 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     );
   }
 
+  Future<void> _showRenameDialog(Playlist playlist) async {
+    final controller = TextEditingController(text: playlist.name);
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Rename Playlist'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: "Enter new name"),
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Rename'),
+              onPressed: () {
+                _renamePlaylist(playlist, controller.text);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showDeleteConfirmationDialog(Playlist playlist) async {
+    return showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Playlist?'),
+          content: Text(
+            'Are you sure you want to delete the playlist "${playlist.name}"? This cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: Text(
+                'Delete',
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+              onPressed: () {
+                _deletePlaylist(playlist);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeManager = Provider.of<ThemeManager>(context);
     final isDarkMode = themeManager.themeMode == ThemeMode.dark;
+
+    final allSongsPlaylist = Playlist(
+      name: "All Songs",
+      songIDs: _allSongIDs,
+      file: File(''),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -209,6 +297,12 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
             icon: Icon(Icons.create_new_folder_outlined, color: Theme.of(context).iconTheme.color),
             tooltip: 'New Playlist',
             onPressed: _showCreatePlaylistDialog,
+          ),
+          IconButton(
+            icon: Icon(
+              _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
+            ),
+            onPressed: () => setState(() => _isGridView = !_isGridView),
           ),
           IconButton(
             icon: Icon(
@@ -226,7 +320,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         ),
         icon: Icon(Icons.add_to_photos_rounded, color: Theme.of(context).iconTheme.color),
       ),
-      // ADDED: MiniPlayer is back
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, playerManager, child) {
           if (playerManager.currentSongTitle == null)
@@ -270,11 +363,11 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               ),
               Expanded(
                 child: _playlists.isEmpty && _allSongIDs.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           "Your library is empty.\nUse the Import button to get started!",
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white70, fontSize: 18),
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 18),
                         ),
                       )
                     : _isGridView
@@ -297,7 +390,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         final playlist = fullList[index];
         final isAllSongs = index == 0;
         return Card(
-          color: Colors.white.withOpacity(0.1),
+          color: Theme.of(context).cardColor.withOpacity(0.08),
           margin: const EdgeInsets.only(bottom: 12.0),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -307,19 +400,16 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               isAllSongs
                   ? Icons.library_music_rounded
                   : Icons.music_note_rounded,
-              color: Colors.white,
+              color: Theme.of(context).iconTheme.color,
               size: 30,
             ),
             title: Text(
               playlist.name,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
               '${playlist.songIDs.length} songs',
-              style: const TextStyle(color: Colors.white70),
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
             trailing: isAllSongs
                 ? null
@@ -341,7 +431,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                             child: Text('Delete'),
                           ),
                         ],
-                    icon: const Icon(Icons.more_vert, color: Colors.white70),
+                    icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color?.withOpacity(0.7)),
                   ),
             onTap: () async {
               await Navigator.push(
@@ -376,7 +466,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         final playlist = fullList[index];
         final isAllSongs = index == 0;
         return Card(
-          color: Colors.white.withOpacity(0.1),
+          color: Theme.of(context).cardColor.withOpacity(0.08),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -406,21 +496,20 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                         isAllSongs
                             ? Icons.library_music_rounded
                             : Icons.queue_music_rounded,
-                        color: Colors.white,
+                        color: Theme.of(context).iconTheme.color,
                         size: 40,
                       ),
                       const Spacer(),
                       Text(
                         playlist.name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       Text(
                         '${playlist.songIDs.length} songs',
-                        style: const TextStyle(color: Colors.white70),
+                        style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
                   ),
@@ -447,7 +536,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                               child: Text('Delete'),
                             ),
                           ],
-                      icon: const Icon(Icons.more_vert, color: Colors.white70),
+                      icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color?.withOpacity(0.7)),
                     ),
                   ),
               ],
@@ -455,22 +544,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildSliverSearchResults() {
-    final playerManager = Provider.of<PlayerManager>(context, listen: false);
-    return SliverList(
-      delegate: SliverChildBuilderDelegate((context, index) {
-        final song = _searchResults[index];
-        return ListTile(
-          leading: const Icon(Icons.music_note, color: Colors.white),
-          title: Text(song.title, style: const TextStyle(color: Colors.white)),
-          onTap: () {
-            playerManager.play(_searchResults, index);
-          },
-        );
-      }, childCount: _searchResults.length),
     );
   }
 }
