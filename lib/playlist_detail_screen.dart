@@ -39,108 +39,115 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<Song> _filteredSongs = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadSongs();
-    _searchController.addListener(() {
-      _filterSongs(_searchController.text);
-    });
-  }
+
 
   @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
+  Widget build(BuildContext context) {
+    final playerManager = Provider.of<PlayerManager>(context, listen: false);
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
-  Future<void> _loadSongs() async {
-    final documentsDir = await getApplicationDocumentsDirectory();
-    final madMusicPlayerDir = Directory(
-      '${documentsDir.path}/MAD Music Player',
-    );
-    _libraryFile = File('${madMusicPlayerDir.path}/library.json');
-
-    if (await _libraryFile.exists()) {
-      _musicLibrary = jsonDecode(await _libraryFile.readAsString());
-    } else {
-      await _libraryFile.writeAsString('{}');
-      _musicLibrary = {};
-    }
-
-    final songIdsToLoad = widget.isAllSongsPlaylist
-        ? _musicLibrary.keys.toList()
-        : widget.playlist.songIDs;
-
-    final songList = <Song>[];
-    for (String songId in songIdsToLoad) {
-      if (_musicLibrary.containsKey(songId)) {
-        songList.add(
-          Song(
-            id: songId,
-            title: _musicLibrary[songId]['title'],
-            path: _musicLibrary[songId]['path'],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.playlist.name),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      floatingActionButton: widget.isAllSongsPlaylist
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _addSongsToPlaylist,
+              icon: Icon(Icons.add, color: Theme.of(context).floatingActionButtonTheme.foregroundColor),
+              label: Text('Add', style: Theme.of(context).textTheme.bodyLarge),
+            ),
+      bottomNavigationBar: Consumer<PlayerManager>(
+        builder: (context, pm, child) {
+          if (pm.currentSongTitle == null) return const SizedBox.shrink();
+          return MiniPlayer(
+            songTitle: pm.currentSongTitle!,
+            isPlaying: pm.isPlaying,
+            position: pm.position,
+            duration: pm.duration,
+            onPlayPause: () => pm.isPlaying ? pm.pause() : pm.resume(),
+            onPrevious: pm.playPrevious,
+            onNext: pm.playNext,
+            onSeek: (value) => pm.seek(Duration(seconds: value.toInt())),
+            onSeekBackward: pm.seekBackward10,
+            onSeekForward: pm.seekForward10,
+          );
+        },
+      ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDarkMode ? AppThemes.darkGradient : AppThemes.lightGradient,
           ),
-        );
-      }
-    }
-
-    setState(() {
-      _songs = songList;
-      _filteredSongs = songList;
-    });
-  }
-
-  void _filterSongs(String query) {
-    if (query.isEmpty) {
-      setState(() {
-        _filteredSongs = _songs;
-      });
-      return;
-    }
-    final results = _songs.where((song) {
-      return song.title.toLowerCase().contains(query.toLowerCase());
-    }).toList();
-    setState(() {
-      _filteredSongs = results;
-    });
-  }
-
-  Future<void> _addSongsToPlaylist() async {
-    final selectedSongIDs = await Navigator.push<Set<String>>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddSongsFromLibraryScreen(
-          existingSongIDs: _songs.map((s) => s.id).toSet(),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              SearchBarWidget(
+                controller: _searchController,
+                hintText: 'Search in playlist...',
+                onChanged: _filterSongs,
+              ),
+              Expanded(
+                child: _songs.isEmpty
+                    ? Center(
+                        child: Text(
+                          widget.isAllSongsPlaylist
+                              ? "Your library is empty.\nImport songs from the main screen!"
+                              : "This playlist is empty.\nAdd some songs!",
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 18),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: _filteredSongs.length,
+                        itemBuilder: (context, index) {
+                          final song = _filteredSongs[index];
+                          return ListTile(
+                            leading: Icon(
+                              Icons.music_note,
+                              color: Theme.of(context).iconTheme.color,
+                            ),
+                            title: Text(song.title, style: Theme.of(context).textTheme.bodyLarge),
+                            onTap: () {
+                              final songPathsToPlay = _filteredSongs.map((s) => s.path).toList();
+                              playerManager.play(songPathsToPlay, index);
+                            },
+                            trailing: PopupMenuButton<String>(
+                              onSelected: (value) {
+                                if (value == 'rename') {
+                                  _showRenameDialog(song);
+                                } else if (value == 'remove') {
+                                  if (widget.isAllSongsPlaylist) {
+                                    _showGlobalDeleteConfirmationDialog(song);
+                                  } else {
+                                    _removeSongFromPlaylist(song);
+                                  }
+                                }
+                              },
+                              itemBuilder: (context) => <PopupMenuEntry<String>>[
+                                const PopupMenuItem(value: 'rename', child: Text('Rename')),
+                                PopupMenuItem(value: 'remove', child: Text(widget.isAllSongsPlaylist ? 'Delete from Library' : 'Remove from Playlist')),
+                              ],
+                              icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
         ),
       ),
     );
-
-    if (selectedSongIDs != null && selectedSongIDs.isNotEmpty) {
-      widget.playlist.songIDs.addAll(selectedSongIDs);
-      final playlistJson = {
-        "name": widget.playlist.name,
-        "songIDs": widget.playlist.songIDs,
-      };
-      await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
-      await _loadSongs();
-    }
   }
-
-  Future<void> _renameSong(Song song, String newTitle) async {
-    if (newTitle.trim().isEmpty || newTitle.trim() == song.title) return;
-    if (_musicLibrary.containsKey(song.id)) {
-      _musicLibrary[song.id]['title'] = newTitle.trim();
-      await _libraryFile.writeAsString(jsonEncode(_musicLibrary));
-      await _loadSongs();
-    }
-  }
-
-  Future<void> _removeSongFromPlaylist(Song song) async {
-    final updatedSongIDs = List<String>.from(widget.playlist.songIDs)
-      ..remove(song.id);
-    final playlistJson = {
-      "name": widget.playlist.name,
+}
       "songIDs": updatedSongIDs,
     };
     await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
@@ -211,157 +218,3 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
 
   Future<void> _showRenameDialog(Song song) async {
     final controller = TextEditingController(text: song.title);
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Rename Song'),
-        content: Container(
-          width: double.maxFinite,
-          child: TextField(controller: controller, autofocus: true),
-        ),
-        actions: [
-          TextButton(
-            child: const Text('Cancel'),
-            onPressed: () => Navigator.of(context).pop(),
-          ),
-          TextButton(
-            child: const Text('Rename'),
-            onPressed: () {
-              _renameSong(song, controller.text);
-              Navigator.of(context).pop();
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final playerManager = Provider.of<PlayerManager>(context, listen: false);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.playlist.name),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-      ),
-      floatingActionButton: widget.isAllSongsPlaylist
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _addSongsToPlaylist,
-              label: const Text("Add Songs"),
-              icon: const Icon(Icons.add_rounded),
-            ),
-      bottomNavigationBar: Consumer<PlayerManager>(
-        builder: (context, playerManager, child) {
-          if (playerManager.currentSongTitle == null)
-            return const SizedBox.shrink();
-          return MiniPlayer(
-            songTitle: playerManager.currentSongTitle!,
-            isPlaying: playerManager.isPlaying,
-            position: playerManager.position,
-            duration: playerManager.duration,
-            onPlayPause: () => playerManager.isPlaying
-                ? playerManager.pause()
-                : playerManager.resume(),
-            onPrevious: playerManager.playPrevious,
-            onNext: playerManager.playNext,
-            onSeek: (value) =>
-                playerManager.seek(Duration(seconds: value.toInt())),
-            onSeekBackward: playerManager.seekBackward10,
-            onSeekForward: playerManager.seekForward10,
-          );
-        },
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: Theme.of(context).brightness == Brightness.dark
-                ? AppThemes.darkGradient
-                : AppThemes.lightGradient,
-          ),
-        ),
-        child: Column(
-          children: [
-            SearchBarWidget(
-              controller: _searchController,
-              hintText: 'Search in playlist...',
-              onChanged: _filterSongs,
-            ),
-            Expanded(
-              child: _songs.isEmpty
-                  ? Center(
-                      child: Text(
-                        widget.isAllSongsPlaylist
-                            ? "Your library is empty.\nImport songs from the main screen!"
-                            : "This playlist is empty.\nAdd some songs!",
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 18,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: _filteredSongs.length,
-                      itemBuilder: (context, index) {
-                        final song = _filteredSongs[index];
-                        return ListTile(
-                          leading: const Icon(
-                            Icons.music_note,
-                            color: Colors.white,
-                          ),
-                          title: Text(
-                            song.title,
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                          onTap: () {
-                            final songPathsToPlay = _filteredSongs
-                                .map((s) => s.path)
-                                .toList();
-                            playerManager.play(songPathsToPlay, index);
-                          },
-                          trailing: PopupMenuButton<String>(
-                            onSelected: (value) {
-                              if (value == 'rename') {
-                                _showRenameDialog(song);
-                              } else if (value == 'remove') {
-                                if (widget.isAllSongsPlaylist) {
-                                  _showGlobalDeleteConfirmationDialog(song);
-                                } else {
-                                  _removeSongFromPlaylist(song);
-                                }
-                              }
-                            },
-                            itemBuilder: (context) => <PopupMenuEntry<String>>[
-                              const PopupMenuItem(
-                                value: 'rename',
-                                child: Text('Rename'),
-                              ),
-                              PopupMenuItem(
-                                value: 'remove',
-                                child: Text(
-                                  widget.isAllSongsPlaylist
-                                      ? 'Delete from Library'
-                                      : 'Remove from Playlist',
-                                ),
-                              ),
-                            ],
-                            icon: const Icon(
-                              Icons.more_vert,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

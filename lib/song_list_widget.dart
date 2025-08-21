@@ -32,7 +32,7 @@ class SongListWidget extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 18,
-              color: Colors.white.withOpacity(0.8),
+              color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.9),
             ),
           ),
         ),
@@ -40,14 +40,14 @@ class SongListWidget extends StatelessWidget {
     }
     return Column(
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 8.0),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Text(
             'Song List:',
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 16,
-              color: Colors.white,
+              color: Theme.of(context).iconTheme.color,
             ),
           ),
         ),
@@ -63,7 +63,7 @@ class SongListWidget extends StatelessWidget {
                       child: Text(
                         songTitles[index],
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Theme.of(context).iconTheme.color,
                           fontWeight: isSelected
                               ? FontWeight.bold
                               : FontWeight.normal,
@@ -115,13 +115,13 @@ class SongListWidget extends StatelessWidget {
                 ),
                 leading: Icon(
                   isSelected ? Icons.music_note : Icons.audiotrack,
-                  color: Colors.white,
+                  color: Theme.of(context).textTheme.bodyLarge?.color,
                 ),
                 selected: isSelected,
-                selectedTileColor: Colors.white.withOpacity(0.2),
+                selectedTileColor: Theme.of(context).cardColor.withOpacity(0.12),
                 onTap: () => onSongTap(index),
                 trailing: IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                  icon: Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
                   onPressed: () => onRemove(index),
                   tooltip: 'Remove',
                 ),

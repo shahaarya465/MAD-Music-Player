@@ -87,7 +87,7 @@ class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
             child: Text(
               'Done',
               style: TextStyle(
-                color: Theme.of(context).appBarTheme.titleTextStyle?.color,
+                color: Theme.of(context).textTheme.bodyLarge?.color,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -125,13 +125,13 @@ class _AddSongsFromLibraryScreenState extends State<AddSongsFromLibraryScreen> {
                     title: Text(
                       song.title,
                       style: TextStyle(
-                        color: alreadyExists ? Colors.grey : Colors.white,
+                        color: alreadyExists ? Colors.grey : Theme.of(context).textTheme.bodyLarge?.color,
                       ),
                     ),
                     subtitle: alreadyExists
-                        ? const Text(
+                        ? Text(
                             "Already in playlist",
-                            style: TextStyle(color: Colors.grey),
+                            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color),
                           )
                         : null,
                     value: isSelected,
