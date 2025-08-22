@@ -330,8 +330,9 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       ),
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, playerManager, child) {
-          if (playerManager.currentSongTitle == null)
+          if (playerManager.currentSongTitle == null) {
             return const SizedBox.shrink();
+          }
           return MiniPlayer(
             songTitle: playerManager.currentSongTitle!,
             isPlaying: playerManager.isPlaying,
@@ -381,8 +382,8 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                         ),
                       )
                     : _isGridView
-                    ? _buildGridView(allSongsPlaylist)
-                    : _buildListView(allSongsPlaylist),
+                        ? _buildGridView(allSongsPlaylist)
+                        : _buildListView(allSongsPlaylist),
               ),
             ],
           ),
@@ -402,6 +403,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         return Card(
           color: Theme.of(context).cardColor.withOpacity(0.08),
           margin: const EdgeInsets.only(bottom: 12.0),
+          // THIS CONTROLS THE ROUNDED CORNERS FOR LIST VIEW
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -427,22 +429,23 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                 ? null
                 : PopupMenuButton<String>(
                     onSelected: (value) {
-                      if (value == 'rename')
+                      if (value == 'rename') {
                         _showRenameDialog(playlist);
-                      else if (value == 'delete')
+                      } else if (value == 'delete') {
                         _showDeleteConfirmationDialog(playlist);
+                      }
                     },
                     itemBuilder: (BuildContext context) =>
                         <PopupMenuEntry<String>>[
-                          const PopupMenuItem<String>(
-                            value: 'rename',
-                            child: Text('Rename'),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
-                        ],
+                      const PopupMenuItem<String>(
+                        value: 'rename',
+                        child: Text('Rename'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    ],
                     icon: Icon(
                       Icons.more_vert,
                       color: Theme.of(
@@ -476,7 +479,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 16.0,
         mainAxisSpacing: 16.0,
-        childAspectRatio: 2.7,
+        childAspectRatio: 1.8, // Previous fix for the overflow
       ),
       itemCount: fullList.length,
       itemBuilder: (context, index) {
@@ -484,6 +487,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         final isAllSongs = index == 0;
         return Card(
           color: Theme.of(context).cardColor.withOpacity(0.08),
+          // THIS CONTROLS THE ROUNDED CORNERS FOR GRID VIEW
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
@@ -520,9 +524,11 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                       Text(
                         playlist.name,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         '${playlist.songIDs.length} songs',
@@ -537,22 +543,23 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                     right: 4,
                     child: PopupMenuButton<String>(
                       onSelected: (value) {
-                        if (value == 'rename')
+                        if (value == 'rename') {
                           _showRenameDialog(playlist);
-                        else if (value == 'delete')
+                        } else if (value == 'delete') {
                           _showDeleteConfirmationDialog(playlist);
+                        }
                       },
                       itemBuilder: (BuildContext context) =>
                           <PopupMenuEntry<String>>[
-                            const PopupMenuItem<String>(
-                              value: 'rename',
-                              child: Text('Rename'),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'delete',
-                              child: Text('Delete'),
-                            ),
-                          ],
+                        const PopupMenuItem<String>(
+                          value: 'rename',
+                          child: Text('Rename'),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Text('Delete'),
+                        ),
+                      ],
                       icon: Icon(
                         Icons.more_vert,
                         color: Theme.of(
