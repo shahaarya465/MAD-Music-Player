@@ -1,6 +1,6 @@
 {
-    "name": "music_player_app",
-    "short_name": "music_player_app",
+    "name": "MAD Music",
+    "short_name": "MAD Music",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

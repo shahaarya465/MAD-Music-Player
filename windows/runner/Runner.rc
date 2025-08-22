@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.mad" "\0"
-            VALUE "FileDescription", "music_player_app" "\0"
+            VALUE "FileDescription", "MAD Music" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "music_player_app" "\0"
+            VALUE "InternalName", "MAD Music" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.mad. All rights reserved." "\0"
-            VALUE "OriginalFilename", "music_player_app.exe" "\0"
-            VALUE "ProductName", "music_player_app" "\0"
+            VALUE "OriginalFilename", "MAD Music.exe" "\0"
+            VALUE "ProductName", "MAD Music" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

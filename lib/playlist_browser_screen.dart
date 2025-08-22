@@ -288,7 +288,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MAD Music Player'),
+        title: const Text('MAD Music'),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,

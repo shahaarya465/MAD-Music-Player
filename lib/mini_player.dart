@@ -105,11 +105,6 @@ class MiniPlayer extends StatelessWidget {
                   iconSize: 28,
                 ),
                 IconButton(
-                  icon: Icon(Icons.replay_10_rounded, color: onSurfaceColor),
-                  onPressed: onSeekBackward,
-                  iconSize: 28,
-                ),
-                IconButton(
                   icon: Icon(
                     isPlaying
                         ? Icons.pause_circle_filled_rounded
@@ -118,11 +113,6 @@ class MiniPlayer extends StatelessWidget {
                   ),
                   onPressed: onPlayPause,
                   iconSize: 42,
-                ),
-                IconButton(
-                  icon: Icon(Icons.forward_10_rounded, color: onSurfaceColor),
-                  onPressed: onSeekForward,
-                  iconSize: 28,
                 ),
                 IconButton(
                   icon: Icon(Icons.skip_next_rounded, color: onSurfaceColor),
