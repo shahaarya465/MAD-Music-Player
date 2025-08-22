@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 
 class AppThemes {
   static final List<Color> lightGradient = [
-  const Color(0xFFFFFFFF),
-  const Color(0xFFF2F2F2),
+    const Color(0xFFFFFFFF),
+    const Color(0xFFF2F2F2),
   ];
   static final List<Color> darkGradient = [
     const Color(0xFF050506), // almost black
@@ -18,14 +18,22 @@ class AppThemes {
     canvasColor: const Color(0xFFF7F7F7),
     cardColor: Colors.white,
     textTheme: const TextTheme(
-      titleLarge: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+      titleLarge: TextStyle(
+        color: Colors.black,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      ),
       bodyLarge: TextStyle(color: Colors.black87),
       bodyMedium: TextStyle(color: Colors.black54),
       titleMedium: TextStyle(color: Colors.black54),
       bodySmall: TextStyle(color: Colors.black45),
     ),
     primaryTextTheme: const TextTheme(
-      titleLarge: TextStyle(color: Colors.black, fontSize: 20, fontWeight: FontWeight.bold),
+      titleLarge: TextStyle(
+        color: Colors.black,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      ),
       bodyLarge: TextStyle(color: Colors.black),
       bodyMedium: TextStyle(color: Colors.black87),
     ),
@@ -51,11 +59,13 @@ class AppThemes {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ButtonStyle(
-        backgroundColor: MaterialStateProperty.all<Color>(Colors.black),
-        foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
-        textStyle: MaterialStateProperty.all<TextStyle>(TextStyle(color: Colors.white)),
-        iconColor: MaterialStateProperty.all<Color>(Colors.white),
-        shape: MaterialStateProperty.all<RoundedRectangleBorder>(
+        backgroundColor: WidgetStateProperty.all<Color>(Colors.black),
+        foregroundColor: WidgetStateProperty.all<Color>(Colors.white),
+        textStyle: WidgetStateProperty.all<TextStyle>(
+          const TextStyle(color: Colors.white),
+        ),
+        iconColor: WidgetStateProperty.all<Color>(Colors.white),
+        shape: WidgetStateProperty.all<RoundedRectangleBorder>(
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       ),
@@ -81,26 +91,34 @@ class AppThemes {
 
   static final ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
-    primaryColor: const Color(0xFF1F1F23), // dark slate gray
-    scaffoldBackgroundColor: const Color(0xFF070708), // near-black background
+    primaryColor: Colors.white,
+    scaffoldBackgroundColor: const Color(0xFF070708),
     canvasColor: const Color(0xFF0C0C0E),
     cardColor: const Color(0xFF121214),
     textTheme: const TextTheme(
-      titleLarge: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+      titleLarge: TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      ),
       bodyLarge: TextStyle(color: Colors.white70),
       bodyMedium: TextStyle(color: Colors.white60),
       titleMedium: TextStyle(color: Colors.white60),
       bodySmall: TextStyle(color: Colors.white38),
     ),
     primaryTextTheme: const TextTheme(
-      titleLarge: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+      titleLarge: TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      ),
       bodyLarge: TextStyle(color: Colors.white),
       bodyMedium: TextStyle(color: Colors.white70),
     ),
     colorScheme: const ColorScheme.dark(
-      primary: Color(0xFF1F1F23), // primary grayscale
-      secondary: Color(0xFF3A3A3E), // secondary grayscale accent
-      onPrimary: Colors.white,
+      primary: Colors.white,
+      secondary: Color(0xFF3A3A3E),
+      onPrimary: Colors.black,
     ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
@@ -112,9 +130,10 @@ class AppThemes {
         fontSize: 20,
       ),
     ),
+    // UPDATED: FloatingActionButton theme for dark mode
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: Color(0xFF1A1A1D),
-      foregroundColor: Colors.white,
+      backgroundColor: Colors.white,
+      foregroundColor: Colors.black,
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
@@ -124,10 +143,10 @@ class AppThemes {
       ),
     ),
     sliderTheme: SliderThemeData(
-      activeTrackColor: const Color(0xFFE0E0E0),
-      thumbColor: const Color(0xFFBDBDBD),
-      inactiveTrackColor: const Color(0xFF202022),
-      overlayColor: const Color(0x33BDBDBD),
+      activeTrackColor: Colors.white,
+      thumbColor: Colors.white,
+      inactiveTrackColor: Colors.white.withOpacity(0.3),
+      overlayColor: Colors.white.withOpacity(0.2),
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: Color(0xFF0C0C0E),

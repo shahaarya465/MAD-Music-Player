@@ -251,8 +251,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           ? null
           : FloatingActionButton.extended(
               onPressed: _addSongsToPlaylist,
-              icon: Icon(Icons.add, color: Theme.of(context).floatingActionButtonTheme.foregroundColor),
-              label: Text('Add', style: Theme.of(context).textTheme.bodyLarge),
+              label: Icon(
+                Icons.add,
+                color: Theme.of(
+                  context,
+                ).floatingActionButtonTheme.foregroundColor,
+              ),
+              shape: CircleBorder(),
             ),
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, pm, child) {
@@ -278,7 +283,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isDarkMode ? AppThemes.darkGradient : AppThemes.lightGradient,
+            colors: isDarkMode
+                ? AppThemes.darkGradient
+                : AppThemes.lightGradient,
           ),
         ),
         child: SafeArea(
@@ -297,7 +304,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               ? "Your library is empty.\nImport songs from the main screen!"
                               : "This playlist is empty.\nAdd some songs!",
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 18),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyLarge?.copyWith(fontSize: 18),
                         ),
                       )
                     : ListView.builder(
@@ -309,7 +318,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               Icons.music_note,
                               color: Theme.of(context).iconTheme.color,
                             ),
-                            title: Text(song.title, style: Theme.of(context).textTheme.bodyLarge),
+                            title: Text(
+                              song.title,
+                              style: Theme.of(context).textTheme.bodyLarge,
+                            ),
                             onTap: () {
                               playerManager.play(_filteredSongs, index);
                             },
@@ -325,11 +337,25 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   }
                                 }
                               },
-                              itemBuilder: (context) => <PopupMenuEntry<String>>[
-                                const PopupMenuItem(value: 'rename', child: Text('Rename')),
-                                PopupMenuItem(value: 'remove', child: Text(widget.isAllSongsPlaylist ? 'Delete from Library' : 'Remove from Playlist')),
-                              ],
-                              icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color),
+                              itemBuilder: (context) =>
+                                  <PopupMenuEntry<String>>[
+                                    const PopupMenuItem(
+                                      value: 'rename',
+                                      child: Text('Rename'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'remove',
+                                      child: Text(
+                                        widget.isAllSongsPlaylist
+                                            ? 'Delete from Library'
+                                            : 'Remove from Playlist',
+                                      ),
+                                    ),
+                                  ],
+                              icon: Icon(
+                                Icons.more_vert,
+                                color: Theme.of(context).iconTheme.color,
+                              ),
                             ),
                           );
                         },
