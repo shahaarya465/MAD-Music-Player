@@ -26,7 +26,7 @@ class MyApp extends StatelessWidget {
     return Consumer<ThemeManager>(
       builder: (context, themeManager, child) {
         return MaterialApp(
-          title: 'MAD Music Player',
+          title: 'MAD Music',
           theme: AppThemes.lightTheme, // Set the light theme
           darkTheme: AppThemes.darkTheme, // Set the dark theme
           themeMode: themeManager.themeMode, // Control which theme is active
