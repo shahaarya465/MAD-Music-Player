@@ -294,7 +294,10 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(Icons.create_new_folder_outlined, color: Theme.of(context).iconTheme.color),
+            icon: Icon(
+              Icons.create_new_folder_outlined,
+              color: Theme.of(context).iconTheme.color,
+            ),
             tooltip: 'New Playlist',
             onPressed: _showCreatePlaylistDialog,
           ),
@@ -314,11 +317,16 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _importSongsToLibrary,
-        label: const Text(
+        label: Text(
           'Import Songs',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            color: Theme.of(context).floatingActionButtonTheme.foregroundColor,
+          ),
         ),
-        icon: Icon(Icons.add_to_photos_rounded, color: Theme.of(context).iconTheme.color),
+        icon: Icon(
+          Icons.add_to_photos_rounded,
+          color: Theme.of(context).floatingActionButtonTheme.foregroundColor,
+        ),
       ),
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, playerManager, child) {
@@ -367,7 +375,9 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                         child: Text(
                           "Your library is empty.\nUse the Import button to get started!",
                           textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 18),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.bodyLarge?.copyWith(fontSize: 18),
                         ),
                       )
                     : _isGridView
@@ -405,7 +415,9 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
             ),
             title: Text(
               playlist.name,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
               '${playlist.songIDs.length} songs',
@@ -431,7 +443,12 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                             child: Text('Delete'),
                           ),
                         ],
-                    icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color?.withOpacity(0.7)),
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: Theme.of(
+                        context,
+                      ).iconTheme.color?.withOpacity(0.7),
+                    ),
                   ),
             onTap: () async {
               await Navigator.push(
@@ -502,10 +519,10 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                       const Spacer(),
                       Text(
                         playlist.name,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold, fontSize: 16),
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       Text(
                         '${playlist.songIDs.length} songs',
@@ -536,7 +553,12 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                               child: Text('Delete'),
                             ),
                           ],
-                      icon: Icon(Icons.more_vert, color: Theme.of(context).iconTheme.color?.withOpacity(0.7)),
+                      icon: Icon(
+                        Icons.more_vert,
+                        color: Theme.of(
+                          context,
+                        ).iconTheme.color?.withOpacity(0.7),
+                      ),
                     ),
                   ),
               ],
