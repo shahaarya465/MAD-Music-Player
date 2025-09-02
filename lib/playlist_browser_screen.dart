@@ -401,13 +401,14 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         final playlist = fullList[index];
         final isAllSongs = index == 0;
         return Card(
+          clipBehavior: Clip.antiAlias,
           color: Theme.of(context).cardColor.withOpacity(0.08),
           margin: const EdgeInsets.only(bottom: 12.0),
-          // THIS CONTROLS THE ROUNDED CORNERS FOR LIST VIEW
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(24.0),
           ),
           child: ListTile(
+            tileColor: Colors.transparent,
             leading: Icon(
               isAllSongs
                   ? Icons.library_music_rounded
@@ -479,7 +480,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         crossAxisCount: 2,
         crossAxisSpacing: 16.0,
         mainAxisSpacing: 16.0,
-        childAspectRatio: 1.8, // Previous fix for the overflow
+        childAspectRatio: 1.25,
       ),
       itemCount: fullList.length,
       itemBuilder: (context, index) {
@@ -487,9 +488,8 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         final isAllSongs = index == 0;
         return Card(
           color: Theme.of(context).cardColor.withOpacity(0.08),
-          // THIS CONTROLS THE ROUNDED CORNERS FOR GRID VIEW
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(24.0),
           ),
           child: InkWell(
             onTap: () async {
@@ -504,7 +504,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               );
               _initAndLoad();
             },
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(24.0),
             child: Stack(
               children: [
                 Padding(
