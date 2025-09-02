@@ -13,6 +13,7 @@ import 'mini_player.dart';
 import 'playlist_detail_screen.dart';
 import 'search_bar_widget.dart';
 import 'theme.dart';
+import 'queue_screen.dart';
 
 class PlaylistBrowserScreen extends StatefulWidget {
   const PlaylistBrowserScreen({super.key});
@@ -100,7 +101,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     );
     if (result != null && result.files.isNotEmpty) {
       final madMusicPlayerDir = Directory(
-        (await getApplicationDocumentsDirectory()).path + '/MAD Music Player',
+        '${(await getApplicationDocumentsDirectory()).path}/MAD Music Player',
       );
       final libraryFile = File('${madMusicPlayerDir.path}/library.json');
       final Map<String, dynamic> libraryContent = Map<String, dynamic>.from(
@@ -187,14 +188,11 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       builder: (context) {
         return AlertDialog(
           title: const Text('New Playlist'),
-          content: Container(
-            width: double.maxFinite,
-            child: TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: "Enter playlist name",
-              ),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: "Enter playlist name",
             ),
           ),
           actions: [
@@ -293,6 +291,19 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.queue_music),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder: (context) => const FractionallySizedBox(
+                  heightFactor: 0.8,
+                  child: QueueScreen(),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: Icon(
               Icons.create_new_folder_outlined,

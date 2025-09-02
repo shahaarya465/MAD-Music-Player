@@ -257,7 +257,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                   context,
                 ).floatingActionButtonTheme.foregroundColor,
               ),
-              shape: CircleBorder(),
+              shape: const CircleBorder(),
             ),
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, pm, child) {
@@ -314,14 +314,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         itemBuilder: (context, index) {
                           final song = _filteredSongs[index];
                           return ListTile(
-                            leading: Icon(
-                              Icons.music_note,
-                              color: Theme.of(context).iconTheme.color,
-                            ),
-                            title: Text(
-                              song.title,
-                              style: Theme.of(context).textTheme.bodyLarge,
-                            ),
+                            leading: const Icon(Icons.music_note),
+                            title: Text(song.title),
                             onTap: () {
                               playerManager.play(_filteredSongs, index);
                             },
@@ -335,27 +329,35 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   } else {
                                     _removeSongFromPlaylist(song);
                                   }
+                                } else if (value == 'addToQueue') {
+                                  playerManager.addToQueue(song);
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          '${song.title} added to queue.'),
+                                    ),
+                                  );
                                 }
                               },
                               itemBuilder: (context) =>
                                   <PopupMenuEntry<String>>[
-                                    const PopupMenuItem(
-                                      value: 'rename',
-                                      child: Text('Rename'),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'remove',
-                                      child: Text(
-                                        widget.isAllSongsPlaylist
-                                            ? 'Delete from Library'
-                                            : 'Remove from Playlist',
-                                      ),
-                                    ),
-                                  ],
-                              icon: Icon(
-                                Icons.more_vert,
-                                color: Theme.of(context).iconTheme.color,
-                              ),
+                                const PopupMenuItem(
+                                  value: 'addToQueue',
+                                  child: Text('Add to Queue'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'rename',
+                                  child: Text('Rename'),
+                                ),
+                                PopupMenuItem(
+                                  value: 'remove',
+                                  child: Text(
+                                    widget.isAllSongsPlaylist
+                                        ? 'Delete from Library'
+                                        : 'Remove from Playlist',
+                                  ),
+                                ),
+                              ],
                             ),
                           );
                         },
