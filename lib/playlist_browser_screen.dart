@@ -191,9 +191,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           content: TextField(
             controller: controller,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: "Enter playlist name",
-            ),
+            decoration: const InputDecoration(hintText: "Enter playlist name"),
           ),
           actions: [
             TextButton(
@@ -393,8 +391,8 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                         ),
                       )
                     : _isGridView
-                        ? _buildGridView(allSongsPlaylist)
-                        : _buildListView(allSongsPlaylist),
+                    ? _buildGridView(allSongsPlaylist)
+                    : _buildListView(allSongsPlaylist),
               ),
             ],
           ),
@@ -449,15 +447,15 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                     },
                     itemBuilder: (BuildContext context) =>
                         <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'rename',
-                        child: Text('Rename'),
-                      ),
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: Text('Delete'),
-                      ),
-                    ],
+                          const PopupMenuItem<String>(
+                            value: 'rename',
+                            child: Text('Rename'),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
                     icon: Icon(
                       Icons.more_vert,
                       color: Theme.of(
@@ -487,11 +485,15 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     final fullList = [allSongsPlaylist, ..._filteredPlaylists];
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        // This is the key change. Each item will be at most 200 logical pixels wide.
+        // Flutter will then create as many columns as can fit.
+        maxCrossAxisExtent: 200.0,
         crossAxisSpacing: 16.0,
         mainAxisSpacing: 16.0,
-        childAspectRatio: 1.25,
+        // You can adjust this aspect ratio to control the height relative to the width.
+        // 1.0 makes it a square, less than 1.0 makes it taller than it is wide.
+        childAspectRatio: 1.0,
       ),
       itemCount: fullList.length,
       itemBuilder: (context, index) {
@@ -535,9 +537,9 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                       Text(
                         playlist.name,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -562,15 +564,15 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                       },
                       itemBuilder: (BuildContext context) =>
                           <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
-                          value: 'rename',
-                          child: Text('Rename'),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Text('Delete'),
-                        ),
-                      ],
+                            const PopupMenuItem<String>(
+                              value: 'rename',
+                              child: Text('Rename'),
+                            ),
+                            const PopupMenuItem<String>(
+                              value: 'delete',
+                              child: Text('Delete'),
+                            ),
+                          ],
                       icon: Icon(
                         Icons.more_vert,
                         color: Theme.of(
