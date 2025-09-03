@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'playlist_browser_screen.dart';
+
+import 'main_screen.dart';
 import 'theme.dart';
 import 'theme_manager.dart';
 import 'player_manager.dart';
@@ -22,15 +23,14 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Consumer widget listens to ThemeManager changes
     return Consumer<ThemeManager>(
       builder: (context, themeManager, child) {
         return MaterialApp(
           title: 'MAD Music',
-          theme: AppThemes.lightTheme, // Set the light theme
-          darkTheme: AppThemes.darkTheme, // Set the dark theme
-          themeMode: themeManager.themeMode, // Control which theme is active
-          home: const PlaylistBrowserScreen(),
+          // Get the ThemeData from our map based on the selected theme
+          theme: AppThemes.themeData[themeManager.appTheme],
+          // No need for darkTheme or themeMode anymore
+          home: const MainScreen(),
         );
       },
     );

@@ -1,33 +1,25 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:uuid/uuid.dart';
+
 import 'playlist.dart';
-import 'theme_manager.dart';
-import 'player_manager.dart';
-import 'mini_player.dart';
 import 'playlist_detail_screen.dart';
 import 'search_bar_widget.dart';
-import 'theme.dart';
-import 'queue_screen.dart';
 
-class PlaylistBrowserScreen extends StatefulWidget {
-  const PlaylistBrowserScreen({super.key});
+class LibraryScreen extends StatefulWidget {
+  const LibraryScreen({super.key});
 
   @override
-  _PlaylistBrowserScreenState createState() => _PlaylistBrowserScreenState();
+  _LibraryScreenState createState() => _LibraryScreenState();
 }
 
-class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
+class _LibraryScreenState extends State<LibraryScreen> {
   bool _isGridView = false;
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
   late Directory _songsDir;
-  List<String> _allSongIDs = [];
 
   final TextEditingController _searchController = TextEditingController();
   List<Playlist> _filteredPlaylists = [];
@@ -70,12 +62,9 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
       }
     }
 
-    final libraryContent = jsonDecode(await libraryFile.readAsString());
-
     setState(() {
       _playlists = loadedPlaylists;
       _filteredPlaylists = loadedPlaylists;
-      _allSongIDs = libraryContent.keys.toList().cast<String>();
     });
   }
 
@@ -92,47 +81,6 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     setState(() {
       _filteredPlaylists = results;
     });
-  }
-
-  Future<void> _importSongsToLibrary() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-      allowMultiple: true,
-    );
-    if (result != null && result.files.isNotEmpty) {
-      final madMusicPlayerDir = Directory(
-        '${(await getApplicationDocumentsDirectory()).path}/MAD Music Player',
-      );
-      final libraryFile = File('${madMusicPlayerDir.path}/library.json');
-      final Map<String, dynamic> libraryContent = Map<String, dynamic>.from(
-        jsonDecode(await libraryFile.readAsString()),
-      );
-      int importCount = 0;
-
-      for (var file in result.files) {
-        if (file.path != null) {
-          final destPath = p.join(_songsDir.path, p.basename(file.path!));
-          if (!await File(destPath).exists()) {
-            await File(file.path!).copy(destPath);
-            const uuid = Uuid();
-            final songId = uuid.v4();
-            final songTitle = p.basenameWithoutExtension(destPath);
-            libraryContent[songId] = {'title': songTitle, 'path': destPath};
-            importCount++;
-          }
-        }
-      }
-
-      await libraryFile.writeAsString(jsonEncode(libraryContent));
-      await _initAndLoad();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Imported $importCount new songs to your library.'),
-          ),
-        );
-      }
-    }
   }
 
   Future<void> _createPlaylist(String name) async {
@@ -191,9 +139,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           content: TextField(
             controller: controller,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: "Enter playlist name",
-            ),
+            decoration: const InputDecoration(hintText: "Enter playlist name"),
           ),
           actions: [
             TextButton(
@@ -275,142 +221,70 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeManager = Provider.of<ThemeManager>(context);
-    final isDarkMode = themeManager.themeMode == ThemeMode.dark;
-
-    final allSongsPlaylist = Playlist(
-      name: "All Songs",
-      songIDs: _allSongIDs,
-      file: File(''),
-    );
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text('MAD Music'),
+        title: const Text('Library'),
         centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.queue_music),
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (context) => const FractionallySizedBox(
-                  heightFactor: 0.8,
-                  child: QueueScreen(),
-                ),
-              );
-            },
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.create_new_folder_outlined,
-              color: Theme.of(context).iconTheme.color,
-            ),
-            tooltip: 'New Playlist',
-            onPressed: _showCreatePlaylistDialog,
-          ),
           IconButton(
             icon: Icon(
               _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
             ),
             onPressed: () => setState(() => _isGridView = !_isGridView),
           ),
-          IconButton(
-            icon: Icon(
-              isDarkMode ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-            ),
-            onPressed: () => themeManager.toggleTheme(),
-          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _importSongsToLibrary,
+        onPressed: _showCreatePlaylistDialog,
         label: Text(
-          'Import Songs',
+          'New Playlist',
           style: TextStyle(
             color: Theme.of(context).floatingActionButtonTheme.foregroundColor,
           ),
         ),
         icon: Icon(
-          Icons.add_to_photos_rounded,
+          Icons.playlist_add,
           color: Theme.of(context).floatingActionButtonTheme.foregroundColor,
         ),
       ),
-      bottomNavigationBar: Consumer<PlayerManager>(
-        builder: (context, playerManager, child) {
-          if (playerManager.currentSongTitle == null) {
-            return const SizedBox.shrink();
-          }
-          return MiniPlayer(
-            songTitle: playerManager.currentSongTitle!,
-            isPlaying: playerManager.isPlaying,
-            position: playerManager.position,
-            duration: playerManager.duration,
-            onPlayPause: () => playerManager.isPlaying
-                ? playerManager.pause()
-                : playerManager.resume(),
-            onPrevious: playerManager.playPrevious,
-            onNext: playerManager.playNext,
-            onSeek: (value) =>
-                playerManager.seek(Duration(seconds: value.toInt())),
-            onSeekBackward: playerManager.seekBackward10,
-            onSeekForward: playerManager.seekForward10,
-          );
-        },
-      ),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDarkMode
-                ? AppThemes.darkGradient
-                : AppThemes.lightGradient,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              SearchBarWidget(
-                controller: _searchController,
-                hintText: 'Search playlists...',
-                onChanged: _filterPlaylists,
-              ),
-              Expanded(
-                child: _playlists.isEmpty && _allSongIDs.isEmpty
-                    ? Center(
-                        child: Text(
-                          "Your library is empty.\nUse the Import button to get started!",
-                          textAlign: TextAlign.center,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyLarge?.copyWith(fontSize: 18),
-                        ),
-                      )
-                    : _isGridView
-                        ? _buildGridView(allSongsPlaylist)
-                        : _buildListView(allSongsPlaylist),
-              ),
-            ],
-          ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            SearchBarWidget(
+              controller: _searchController,
+              hintText: 'Search playlists...',
+              onChanged: _filterPlaylists,
+            ),
+            Expanded(
+              child: _playlists.isEmpty
+                  ? Center(
+                      child: Text(
+                        "No playlists created yet.\nTap the button below to create one!",
+                        textAlign: TextAlign.center,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.bodyLarge?.copyWith(fontSize: 18),
+                      ),
+                    )
+                  // CHANGED: Removed the check for _allSongIDs
+                  : _isGridView
+                  ? _buildGridView()
+                  : _buildListView(),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildListView(Playlist allSongsPlaylist) {
-    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
+  Widget _buildListView() {
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
-      itemCount: fullList.length,
+      itemCount: _filteredPlaylists.length,
       itemBuilder: (context, index) {
-        final playlist = fullList[index];
-        final isAllSongs = index == 0;
+        final playlist = _filteredPlaylists[index];
         return Card(
           clipBehavior: Clip.antiAlias,
           color: Theme.of(context).cardColor.withOpacity(0.08),
@@ -421,9 +295,7 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
           child: ListTile(
             tileColor: Colors.transparent,
             leading: Icon(
-              isAllSongs
-                  ? Icons.library_music_rounded
-                  : Icons.music_note_rounded,
+              Icons.music_note_rounded,
               color: Theme.of(context).iconTheme.color,
               size: 30,
             ),
@@ -437,42 +309,35 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               '${playlist.songIDs.length} songs',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            trailing: isAllSongs
-                ? null
-                : PopupMenuButton<String>(
-                    onSelected: (value) {
-                      if (value == 'rename') {
-                        _showRenameDialog(playlist);
-                      } else if (value == 'delete') {
-                        _showDeleteConfirmationDialog(playlist);
-                      }
-                    },
-                    itemBuilder: (BuildContext context) =>
-                        <PopupMenuEntry<String>>[
-                      const PopupMenuItem<String>(
-                        value: 'rename',
-                        child: Text('Rename'),
-                      ),
-                      const PopupMenuItem<String>(
-                        value: 'delete',
-                        child: Text('Delete'),
-                      ),
-                    ],
-                    icon: Icon(
-                      Icons.more_vert,
-                      color: Theme.of(
-                        context,
-                      ).iconTheme.color?.withOpacity(0.7),
-                    ),
-                  ),
+            trailing: PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'rename') {
+                  _showRenameDialog(playlist);
+                } else if (value == 'delete') {
+                  _showDeleteConfirmationDialog(playlist);
+                }
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'rename',
+                  child: Text('Rename'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Text('Delete'),
+                ),
+              ],
+              icon: Icon(
+                Icons.more_vert,
+                color: Theme.of(context).iconTheme.color?.withOpacity(0.7),
+              ),
+            ),
             onTap: () async {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => PlaylistDetailScreen(
-                    playlist: playlist,
-                    isAllSongsPlaylist: isAllSongs,
-                  ),
+                  builder: (context) =>
+                      PlaylistDetailScreen(playlist: playlist),
                 ),
               );
               _initAndLoad();
@@ -483,20 +348,18 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
     );
   }
 
-  Widget _buildGridView(Playlist allSongsPlaylist) {
-    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
+  Widget _buildGridView() {
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200.0,
         crossAxisSpacing: 16.0,
         mainAxisSpacing: 16.0,
-        childAspectRatio: 1.25,
+        childAspectRatio: 1.0,
       ),
-      itemCount: fullList.length,
+      itemCount: _filteredPlaylists.length,
       itemBuilder: (context, index) {
-        final playlist = fullList[index];
-        final isAllSongs = index == 0;
+        final playlist = _filteredPlaylists[index];
         return Card(
           color: Theme.of(context).cardColor.withOpacity(0.08),
           shape: RoundedRectangleBorder(
@@ -507,10 +370,8 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => PlaylistDetailScreen(
-                    playlist: playlist,
-                    isAllSongsPlaylist: isAllSongs,
-                  ),
+                  builder: (context) =>
+                      PlaylistDetailScreen(playlist: playlist),
                 ),
               );
               _initAndLoad();
@@ -524,10 +385,9 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // CHANGED: Removed conditional icon logic
                       Icon(
-                        isAllSongs
-                            ? Icons.library_music_rounded
-                            : Icons.queue_music_rounded,
+                        Icons.queue_music_rounded,
                         color: Theme.of(context).iconTheme.color,
                         size: 40,
                       ),
@@ -535,9 +395,9 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                       Text(
                         playlist.name,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -548,37 +408,36 @@ class _PlaylistBrowserScreenState extends State<PlaylistBrowserScreen> {
                     ],
                   ),
                 ),
-                if (!isAllSongs)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'rename') {
-                          _showRenameDialog(playlist);
-                        } else if (value == 'delete') {
-                          _showDeleteConfirmationDialog(playlist);
-                        }
-                      },
-                      itemBuilder: (BuildContext context) =>
-                          <PopupMenuEntry<String>>[
-                        const PopupMenuItem<String>(
-                          value: 'rename',
-                          child: Text('Rename'),
-                        ),
-                        const PopupMenuItem<String>(
-                          value: 'delete',
-                          child: Text('Delete'),
-                        ),
-                      ],
-                      icon: Icon(
-                        Icons.more_vert,
-                        color: Theme.of(
-                          context,
-                        ).iconTheme.color?.withOpacity(0.7),
-                      ),
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'rename') {
+                        _showRenameDialog(playlist);
+                      } else if (value == 'delete') {
+                        _showDeleteConfirmationDialog(playlist);
+                      }
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'rename',
+                            child: Text('Rename'),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Text('Delete'),
+                          ),
+                        ],
+                    icon: Icon(
+                      Icons.more_vert,
+                      color: Theme.of(
+                        context,
+                      ).iconTheme.color?.withOpacity(0.7),
                     ),
                   ),
+                ),
               ],
             ),
           ),
