@@ -10,6 +10,7 @@ import 'package:uuid/uuid.dart';
 
 import 'player_manager.dart';
 import 'playlist_detail_screen.dart';
+import 'search_bar_widget.dart';
 
 class SongsScreen extends StatefulWidget {
   const SongsScreen({super.key});
@@ -20,12 +21,44 @@ class SongsScreen extends StatefulWidget {
 
 class _SongsScreenState extends State<SongsScreen> {
   List<Song> _allSongs = [];
+  List<Song> _filteredSongs = []; // ADDED: List for filtered results
   late Directory _songsDir;
+
+  // ADDED: Controller for the search bar
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _initializeDirectoriesAndLoad();
+    // ADDED: Listener to trigger filtering when text changes
+    _searchController.addListener(() {
+      _filterSongs(_searchController.text);
+    });
+  }
+
+  @override
+  void dispose() {
+    // ADDED: Dispose the controller
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // ADDED: Method to filter songs
+  void _filterSongs(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _filteredSongs = _allSongs;
+      });
+      return;
+    }
+    final results = _allSongs.where((song) {
+      return song.title.toLowerCase().contains(query.toLowerCase());
+    }).toList();
+
+    setState(() {
+      _filteredSongs = results;
+    });
   }
 
   Future<void> _initializeDirectoriesAndLoad() async {
@@ -56,12 +89,12 @@ class _SongsScreenState extends State<SongsScreen> {
       if (mounted) {
         setState(() {
           _allSongs = songList;
+          _filteredSongs = songList; // Initialize filtered list
         });
       }
     }
   }
 
-  // MOVED: This method is now in SongsScreen
   Future<void> _importSongsToLibrary() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.audio,
@@ -92,7 +125,6 @@ class _SongsScreenState extends State<SongsScreen> {
       }
 
       await libraryFile.writeAsString(jsonEncode(libraryContent));
-      // Refresh the song list after importing
       await _loadAllSongs();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -115,7 +147,6 @@ class _SongsScreenState extends State<SongsScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      // ADDED: FloatingActionButton for importing songs
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _importSongsToLibrary,
         label: Text(
@@ -129,26 +160,39 @@ class _SongsScreenState extends State<SongsScreen> {
           color: Theme.of(context).floatingActionButtonTheme.foregroundColor,
         ),
       ),
-      body: _allSongs.isEmpty
-          ? const Center(
-              child: Text(
-                'No songs imported.\nTap the button below to start!',
-                textAlign: TextAlign.center,
-              ),
-            )
-          : ListView.builder(
-              itemCount: _allSongs.length,
-              itemBuilder: (context, index) {
-                final song = _allSongs[index];
-                return ListTile(
-                  leading: const Icon(Icons.music_note),
-                  title: Text(song.title),
-                  onTap: () {
-                    playerManager.play(_allSongs, index);
-                  },
-                );
-              },
-            ),
+      body: Column(
+        // WRAPPED body in a Column
+        children: [
+          // ADDED: SearchBarWidget
+          SearchBarWidget(
+            controller: _searchController,
+            hintText: 'Search all songs...',
+            onChanged: _filterSongs,
+          ),
+          Expanded(
+            // WRAPPED ListView in an Expanded widget
+            child: _filteredSongs.isEmpty
+                ? const Center(
+                    child: Text('No songs found.', textAlign: TextAlign.center),
+                  )
+                : ListView.builder(
+                    // CHANGED: Use _filteredSongs
+                    itemCount: _filteredSongs.length,
+                    itemBuilder: (context, index) {
+                      final song = _filteredSongs[index];
+                      return ListTile(
+                        leading: const Icon(Icons.music_note),
+                        title: Text(song.title),
+                        onTap: () {
+                          // CHANGED: Pass the filtered list to the player
+                          playerManager.play(_filteredSongs, index);
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

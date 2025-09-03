@@ -1,5 +1,5 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
@@ -20,7 +20,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
   late Directory _songsDir;
-  List<String> _allSongIDs = [];
+
+  // REMOVED: _allSongIDs is no longer needed in this screen's state
+  // List<String> _allSongIDs = [];
 
   final TextEditingController _searchController = TextEditingController();
   List<Playlist> _filteredPlaylists = [];
@@ -63,12 +65,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       }
     }
 
-    final libraryContent = jsonDecode(await libraryFile.readAsString());
+    // REMOVED: Logic for loading all song IDs
 
     setState(() {
       _playlists = loadedPlaylists;
       _filteredPlaylists = loadedPlaylists;
-      _allSongIDs = libraryContent.keys.toList().cast<String>();
     });
   }
 
@@ -225,11 +226,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final allSongsPlaylist = Playlist(
-      name: "All Songs",
-      songIDs: _allSongIDs,
-      file: File(''),
-    );
+    // REMOVED: The allSongsPlaylist object is no longer created here.
 
     return Scaffold(
       appBar: AppBar(
@@ -247,17 +244,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        // CHANGED: onPressed to create a new playlist
         onPressed: _showCreatePlaylistDialog,
         label: Text(
-          // CHANGED: Label text
           'New Playlist',
           style: TextStyle(
             color: Theme.of(context).floatingActionButtonTheme.foregroundColor,
           ),
         ),
         icon: Icon(
-          // CHANGED: Icon
           Icons.playlist_add,
           color: Theme.of(context).floatingActionButtonTheme.foregroundColor,
         ),
@@ -271,19 +265,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
               onChanged: _filterPlaylists,
             ),
             Expanded(
-              child: _playlists.isEmpty && _allSongIDs.isEmpty
+              child: _playlists.isEmpty
                   ? Center(
                       child: Text(
-                        "Your library is empty.\nImport songs from the Songs tab!",
+                        "No playlists created yet.\nTap the button below to create one!",
                         textAlign: TextAlign.center,
                         style: Theme.of(
                           context,
                         ).textTheme.bodyLarge?.copyWith(fontSize: 18),
                       ),
                     )
+                  // CHANGED: Removed the check for _allSongIDs
                   : _isGridView
-                  ? _buildGridView(allSongsPlaylist)
-                  : _buildListView(allSongsPlaylist),
+                  ? _buildGridView()
+                  : _buildListView(),
             ),
           ],
         ),
@@ -291,14 +286,13 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  Widget _buildListView(Playlist allSongsPlaylist) {
-    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
+  Widget _buildListView() {
+    // CHANGED: The list now only contains the filtered playlists.
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
-      itemCount: fullList.length,
+      itemCount: _filteredPlaylists.length,
       itemBuilder: (context, index) {
-        final playlist = fullList[index];
-        final isAllSongs = index == 0;
+        final playlist = _filteredPlaylists[index];
         return Card(
           clipBehavior: Clip.antiAlias,
           color: Theme.of(context).cardColor.withOpacity(0.08),
@@ -308,10 +302,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           child: ListTile(
             tileColor: Colors.transparent,
+            // CHANGED: Removed conditional icon logic
             leading: Icon(
-              isAllSongs
-                  ? Icons.library_music_rounded
-                  : Icons.music_note_rounded,
+              Icons.music_note_rounded,
               color: Theme.of(context).iconTheme.color,
               size: 30,
             ),
@@ -325,9 +318,112 @@ class _LibraryScreenState extends State<LibraryScreen> {
               '${playlist.songIDs.length} songs',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            trailing: isAllSongs
-                ? null
-                : PopupMenuButton<String>(
+            // CHANGED: Removed conditional trailing logic
+            trailing: PopupMenuButton<String>(
+              onSelected: (value) {
+                if (value == 'rename') {
+                  _showRenameDialog(playlist);
+                } else if (value == 'delete') {
+                  _showDeleteConfirmationDialog(playlist);
+                }
+              },
+              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(
+                  value: 'rename',
+                  child: Text('Rename'),
+                ),
+                const PopupMenuItem<String>(
+                  value: 'delete',
+                  child: Text('Delete'),
+                ),
+              ],
+              icon: Icon(
+                Icons.more_vert,
+                color: Theme.of(context).iconTheme.color?.withOpacity(0.7),
+              ),
+            ),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      PlaylistDetailScreen(playlist: playlist),
+                ),
+              );
+              _initAndLoad();
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildGridView() {
+    // CHANGED: The list now only contains the filtered playlists.
+    return GridView.builder(
+      padding: const EdgeInsets.all(16.0),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 200.0,
+        crossAxisSpacing: 16.0,
+        mainAxisSpacing: 16.0,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: _filteredPlaylists.length,
+      itemBuilder: (context, index) {
+        final playlist = _filteredPlaylists[index];
+        return Card(
+          color: Theme.of(context).cardColor.withOpacity(0.08),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24.0),
+          ),
+          child: InkWell(
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) =>
+                      PlaylistDetailScreen(playlist: playlist),
+                ),
+              );
+              _initAndLoad();
+            },
+            borderRadius: BorderRadius.circular(24.0),
+            child: Stack(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // CHANGED: Removed conditional icon logic
+                      Icon(
+                        Icons.queue_music_rounded,
+                        color: Theme.of(context).iconTheme.color,
+                        size: 40,
+                      ),
+                      const Spacer(),
+                      Text(
+                        playlist.name,
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${playlist.songIDs.length} songs',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                // CHANGED: Removed conditional logic for the popup menu
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'rename') {
                         _showRenameDialog(playlist);
@@ -353,120 +449,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       ).iconTheme.color?.withOpacity(0.7),
                     ),
                   ),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PlaylistDetailScreen(
-                    playlist: playlist,
-                    isAllSongsPlaylist: isAllSongs,
-                  ),
                 ),
-              );
-              _initAndLoad();
-            },
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildGridView(Playlist allSongsPlaylist) {
-    final fullList = [allSongsPlaylist, ..._filteredPlaylists];
-    return GridView.builder(
-      padding: const EdgeInsets.all(16.0),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 200.0,
-        crossAxisSpacing: 16.0,
-        mainAxisSpacing: 16.0,
-        childAspectRatio: 1.0,
-      ),
-      itemCount: fullList.length,
-      itemBuilder: (context, index) {
-        final playlist = fullList[index];
-        final isAllSongs = index == 0;
-        return Card(
-          color: Theme.of(context).cardColor.withOpacity(0.08),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24.0),
-          ),
-          child: InkWell(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => PlaylistDetailScreen(
-                    playlist: playlist,
-                    isAllSongsPlaylist: isAllSongs,
-                  ),
-                ),
-              );
-              _initAndLoad();
-            },
-            borderRadius: BorderRadius.circular(24.0),
-            child: Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        isAllSongs
-                            ? Icons.library_music_rounded
-                            : Icons.queue_music_rounded,
-                        color: Theme.of(context).iconTheme.color,
-                        size: 40,
-                      ),
-                      const Spacer(),
-                      Text(
-                        playlist.name,
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        '${playlist.songIDs.length} songs',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                if (!isAllSongs)
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: PopupMenuButton<String>(
-                      onSelected: (value) {
-                        if (value == 'rename') {
-                          _showRenameDialog(playlist);
-                        } else if (value == 'delete') {
-                          _showDeleteConfirmationDialog(playlist);
-                        }
-                      },
-                      itemBuilder: (BuildContext context) =>
-                          <PopupMenuEntry<String>>[
-                            const PopupMenuItem<String>(
-                              value: 'rename',
-                              child: Text('Rename'),
-                            ),
-                            const PopupMenuItem<String>(
-                              value: 'delete',
-                              child: Text('Delete'),
-                            ),
-                          ],
-                      icon: Icon(
-                        Icons.more_vert,
-                        color: Theme.of(
-                          context,
-                        ).iconTheme.color?.withOpacity(0.7),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
