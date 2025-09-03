@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'main_screen.dart';
 import 'package:provider/provider.dart';
-import 'playlist_browser_screen.dart';
 import 'theme.dart';
 import 'theme_manager.dart';
 import 'player_manager.dart';
@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
           theme: AppThemes.lightTheme, // Set the light theme
           darkTheme: AppThemes.darkTheme, // Set the dark theme
           themeMode: themeManager.themeMode, // Control which theme is active
-          home: const PlaylistBrowserScreen(),
+          home: const MainScreen(), // Change this to your new main screen
         );
       },
     );
