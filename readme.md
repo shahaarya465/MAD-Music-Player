@@ -1,4 +1,4 @@
-# Music Player App
+# MAD Music
 
 A cross-platform music player app built with Flutter. This app allows users to play music from their local device storage, featuring essential controls like play/pause, shuffle, repeat, and background playback.
 

@@ -62,11 +62,22 @@ class PlayerManager with ChangeNotifier {
     _currentIndex = startIndex;
     if (_isShuffle) {
       _currentPlaylist.shuffle();
-      _currentIndex = _currentPlaylist
-          .indexWhere((s) => s.id == playlist[startIndex].id);
+      _currentIndex = _currentPlaylist.indexWhere(
+        (s) => s.id == playlist[startIndex].id,
+      );
     }
     if (_currentIndex != null) {
       final song = _currentPlaylist[_currentIndex!];
+      await _audioPlayer.play(DeviceFileSource(song.path));
+      _addSongToRecents(song.id);
+    }
+  }
+
+  // Add this method to play a song by its index
+  Future<void> playAtIndex(int index) async {
+    if (index >= 0 && index < _currentPlaylist.length) {
+      _currentIndex = index;
+      final song = _currentPlaylist[index];
       await _audioPlayer.play(DeviceFileSource(song.path));
       _addSongToRecents(song.id);
     }
@@ -137,7 +148,8 @@ class PlayerManager with ChangeNotifier {
       if (_isShuffle) {
         _currentIndex = Random().nextInt(_currentPlaylist.length);
       } else {
-        _currentIndex = (_currentIndex! - 1 + _currentPlaylist.length) %
+        _currentIndex =
+            (_currentIndex! - 1 + _currentPlaylist.length) %
             _currentPlaylist.length;
       }
       await play(_currentPlaylist, _currentIndex!);

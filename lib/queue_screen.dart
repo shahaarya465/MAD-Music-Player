@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'player_manager.dart';
-// import 'playlist_detail_screen.dart';
 import 'theme.dart';
 
 class QueueScreen extends StatelessWidget {
@@ -29,8 +28,8 @@ class QueueScreen extends StatelessWidget {
               playerManager.repeatMode == RepeatMode.none
                   ? Icons.repeat
                   : playerManager.repeatMode == RepeatMode.one
-                      ? Icons.repeat_one
-                      : Icons.repeat_on,
+                  ? Icons.repeat_one
+                  : Icons.repeat_on,
             ),
             onPressed: playerManager.toggleRepeat,
           ),
@@ -61,11 +60,16 @@ class QueueScreen extends StatelessWidget {
                     title: Text(
                       song.title,
                       style: TextStyle(
-                        fontWeight:
-                            isCurrent ? FontWeight.bold : FontWeight.normal,
+                        fontWeight: isCurrent
+                            ? FontWeight.bold
+                            : FontWeight.normal,
                       ),
                     ),
                     trailing: const Icon(Icons.drag_handle),
+                    onTap: () {
+                      // Add this onTap callback
+                      playerManager.playAtIndex(index);
+                    },
                   );
                 },
                 onReorder: (oldIndex, newIndex) {
