@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'theme.dart';
 import 'theme_manager.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -9,7 +10,6 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final themeManager = Provider.of<ThemeManager>(context);
-    final isDarkMode = themeManager.themeMode == ThemeMode.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -20,16 +20,24 @@ class SettingsScreen extends StatelessWidget {
       ),
       body: ListView(
         children: [
-          ListTile(
-            leading: Icon(isDarkMode ? Icons.dark_mode : Icons.light_mode),
-            title: const Text('Dark Mode'),
-            trailing: Switch(
-              value: isDarkMode,
-              onChanged: (value) {
-                themeManager.toggleTheme();
-              },
+          const ListTile(
+            title: Text(
+              'Theme',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
+          ...AppTheme.values.map((theme) {
+            return RadioListTile<AppTheme>(
+              title: Text(theme.name),
+              value: theme,
+              groupValue: themeManager.appTheme,
+              onChanged: (newTheme) {
+                if (newTheme != null) {
+                  themeManager.setTheme(newTheme);
+                }
+              },
+            );
+          }).toList(),
         ],
       ),
     );

@@ -1,14 +1,17 @@
 import 'dart:io';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
+
 import 'playlist.dart';
 import 'player_manager.dart';
 import 'mini_player.dart';
 import 'add_songs_from_library_screen.dart';
 import 'theme.dart';
 import 'search_bar_widget.dart';
+import 'theme_manager.dart';
 
 class Song {
   final String id;
@@ -32,6 +35,7 @@ class PlaylistDetailScreen extends StatefulWidget {
 }
 
 class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
+  // ... (all your existing state variables and methods remain the same)
   List<Song> _songs = [];
   Map<String, dynamic> _musicLibrary = {};
   late File _libraryFile;
@@ -239,7 +243,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final playerManager = Provider.of<PlayerManager>(context, listen: false);
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    // Get the ThemeManager to find the current theme
+    final themeManager = Provider.of<ThemeManager>(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -283,9 +288,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isDarkMode
-                ? AppThemes.darkGradient
-                : AppThemes.lightGradient,
+            // CHANGED: Use the gradientData map to get the correct gradient
+            colors:
+                AppThemes.gradientData[themeManager.appTheme] ??
+                AppThemes.darkGradient,
           ),
         ),
         child: SafeArea(
@@ -334,30 +340,31 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                          '${song.title} added to queue.'),
+                                        '${song.title} added to queue.',
+                                      ),
                                     ),
                                   );
                                 }
                               },
                               itemBuilder: (context) =>
                                   <PopupMenuEntry<String>>[
-                                const PopupMenuItem(
-                                  value: 'addToQueue',
-                                  child: Text('Add to Queue'),
-                                ),
-                                const PopupMenuItem(
-                                  value: 'rename',
-                                  child: Text('Rename'),
-                                ),
-                                PopupMenuItem(
-                                  value: 'remove',
-                                  child: Text(
-                                    widget.isAllSongsPlaylist
-                                        ? 'Delete from Library'
-                                        : 'Remove from Playlist',
-                                  ),
-                                ),
-                              ],
+                                    const PopupMenuItem(
+                                      value: 'addToQueue',
+                                      child: Text('Add to Queue'),
+                                    ),
+                                    const PopupMenuItem(
+                                      value: 'rename',
+                                      child: Text('Rename'),
+                                    ),
+                                    PopupMenuItem(
+                                      value: 'remove',
+                                      child: Text(
+                                        widget.isAllSongsPlaylist
+                                            ? 'Delete from Library'
+                                            : 'Remove from Playlist',
+                                      ),
+                                    ),
+                                  ],
                             ),
                           );
                         },

@@ -21,9 +21,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   late Directory _playlistsDir;
   late Directory _songsDir;
 
-  // REMOVED: _allSongIDs is no longer needed in this screen's state
-  // List<String> _allSongIDs = [];
-
   final TextEditingController _searchController = TextEditingController();
   List<Playlist> _filteredPlaylists = [];
 
@@ -64,8 +61,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         loadedPlaylists.add(await Playlist.fromFile(entity));
       }
     }
-
-    // REMOVED: Logic for loading all song IDs
 
     setState(() {
       _playlists = loadedPlaylists;
@@ -226,8 +221,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // REMOVED: The allSongsPlaylist object is no longer created here.
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Library'),
@@ -287,7 +280,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildListView() {
-    // CHANGED: The list now only contains the filtered playlists.
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
       itemCount: _filteredPlaylists.length,
@@ -302,7 +294,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           child: ListTile(
             tileColor: Colors.transparent,
-            // CHANGED: Removed conditional icon logic
             leading: Icon(
               Icons.music_note_rounded,
               color: Theme.of(context).iconTheme.color,
@@ -318,7 +309,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
               '${playlist.songIDs.length} songs',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
-            // CHANGED: Removed conditional trailing logic
             trailing: PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'rename') {
@@ -359,7 +349,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
   }
 
   Widget _buildGridView() {
-    // CHANGED: The list now only contains the filtered playlists.
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
       gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
@@ -419,7 +408,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     ],
                   ),
                 ),
-                // CHANGED: Removed conditional logic for the popup menu
                 Positioned(
                   top: 4,
                   right: 4,
