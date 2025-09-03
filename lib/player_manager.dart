@@ -15,6 +15,7 @@ class PlayerManager with ChangeNotifier {
   Duration _position = Duration.zero;
 
   List<Song> _currentPlaylist = [];
+  List<Song> _originalPlaylist = [];
   int? _currentIndex;
   bool _isShuffle = false;
   RepeatMode _repeatMode = RepeatMode.none;
@@ -58,14 +59,17 @@ class PlayerManager with ChangeNotifier {
   }
 
   Future<void> play(List<Song> playlist, int startIndex) async {
+    _originalPlaylist = List.from(playlist); // Store the original order
     _currentPlaylist = List.from(playlist);
     _currentIndex = startIndex;
+
     if (_isShuffle) {
       _currentPlaylist.shuffle();
       _currentIndex = _currentPlaylist.indexWhere(
         (s) => s.id == playlist[startIndex].id,
       );
     }
+
     if (_currentIndex != null) {
       final song = _currentPlaylist[_currentIndex!];
       await _audioPlayer.play(DeviceFileSource(song.path));
@@ -158,6 +162,19 @@ class PlayerManager with ChangeNotifier {
 
   void toggleShuffle() {
     _isShuffle = !_isShuffle;
+
+    if (_currentPlaylist.isNotEmpty && _currentIndex != null) {
+      final currentSongId = _currentPlaylist[_currentIndex!].id;
+
+      if (_isShuffle) {
+        _currentPlaylist.shuffle();
+      } else {
+        _currentPlaylist = List.from(_originalPlaylist);
+      }
+
+      _currentIndex = _currentPlaylist.indexWhere((s) => s.id == currentSongId);
+    }
+
     notifyListeners();
   }
 
