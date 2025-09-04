@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-enum AppTheme { light, dark, midnight, dracula }
+// 1. Replaced 'pastel' with our new theme
+enum AppTheme { light, dark, midnight, dracula, ocean_breeze, sunset }
 
 extension AppThemeExtension on AppTheme {
   String get name {
@@ -13,6 +14,11 @@ extension AppThemeExtension on AppTheme {
         return 'Midnight';
       case AppTheme.dracula:
         return 'Dracula';
+      // 2. Updated the name for the new theme
+      case AppTheme.ocean_breeze:
+        return 'Ocean Breeze';
+      case AppTheme.sunset:
+        return 'Sunset';
     }
   }
 }
@@ -23,6 +29,9 @@ class AppThemes {
     AppTheme.dark: _darkTheme,
     AppTheme.midnight: _midnightTheme,
     AppTheme.dracula: _draculaTheme,
+    // 3. Added the new ThemeData object to the map
+    AppTheme.ocean_breeze: _oceanBreezeTheme,
+    AppTheme.sunset: _sunsetTheme,
   };
 
   // Gradients for each theme's background
@@ -43,13 +52,25 @@ class AppThemes {
     const Color(0xFF282a36),
     const Color(0xFF44475a),
   ];
+  // 4. Defined the new gradient
+  static final List<Color> oceanBreezeGradient = [
+    const Color(0xFFE0F7FA), // Light Cyan
+    const Color(0xFFB2EBF2), // Lighter Cyan
+  ];
+  static final List<Color> sunsetGradient = [
+    const Color(0xFFF2A65A),
+    const Color(0xFF772F1A),
+  ];
 
-  // ADDED: A map to easily access the correct gradient
+
   static final Map<AppTheme, List<Color>> gradientData = {
     AppTheme.light: lightGradient,
     AppTheme.dark: darkGradient,
     AppTheme.midnight: midnightGradient,
     AppTheme.dracula: draculaGradient,
+    // 5. Added the new gradient to the map
+    AppTheme.ocean_breeze: oceanBreezeGradient,
+    AppTheme.sunset: sunsetGradient,
   };
 
   // --- Theme Data Definitions ---
@@ -222,6 +243,14 @@ class AppThemes {
       secondary: Color(0xFF566573),
       onPrimary: Colors.black,
     ),
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> states) {
+        if (states.contains(WidgetState.selected)) {
+          return const Color(0xFF3A6073);
+        }
+        return Colors.white70;
+      }),
+    ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -302,6 +331,96 @@ class AppThemes {
     listTileTheme: const ListTileThemeData(
       textColor: Color(0xFFf8f8f2),
       iconColor: Colors.white70,
+    ),
+  );
+
+  // 6. Define the new themes
+  
+  // A light, colorful theme with pastel pinks and teals.
+  static final ThemeData _oceanBreezeTheme = ThemeData(
+    brightness: Brightness.light,
+    primaryColor: const Color(0xFF00838F), // Dark Cyan
+    scaffoldBackgroundColor: const Color(0xFFF0F8FF), // Alice Blue
+    canvasColor: Colors.white,
+    cardColor: Colors.white,
+    colorScheme: const ColorScheme.light(
+      primary: Color(0xFF00838F), // Dark Cyan
+      secondary: Color(0xFF00BCD4), // Cyan
+      onPrimary: Colors.white,
+      surface: Colors.white,
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      iconTheme: IconThemeData(color: Color(0xFF006064)), // Darker Cyan
+      titleTextStyle: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF006064),
+        fontSize: 20,
+      ),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: Color(0xFF00838F),
+      foregroundColor: Colors.white,
+    ),
+    sliderTheme: SliderThemeData(
+      activeTrackColor: const Color(0xFF00838F),
+      thumbColor: const Color(0xFF00838F),
+      inactiveTrackColor: const Color(0xFF00838F).withOpacity(0.3),
+      overlayColor: const Color(0xFF00838F).withOpacity(0.2),
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Colors.white,
+      selectedItemColor: Color(0xFF00838F),
+      unselectedItemColor: Colors.grey,
+    ),
+    listTileTheme: const ListTileThemeData(
+      textColor: Color(0xFF006064),
+      iconColor: Color(0xFF00BCD4),
+    ),
+  );
+
+  // A light, colorful theme with warm sunset colors.
+  static final ThemeData _sunsetTheme = ThemeData(
+    brightness: Brightness.light,
+    primaryColor: const Color(0xFFff7043), // Deep Orange
+    scaffoldBackgroundColor: const Color(0xFFfff3e0), // Light Orange
+    canvasColor: const Color(0xFFfff3e0),
+    cardColor: Colors.white,
+    colorScheme: const ColorScheme.light(
+      primary: Color(0xFFff7043), // Deep Orange
+      secondary: Color(0xFFffab40), // Orange Accent
+      onPrimary: Colors.white,
+      surface: Colors.white,
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      iconTheme: IconThemeData(color: Color(0xFF5d4037)), // Brown
+      titleTextStyle: TextStyle(
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF5d4037),
+        fontSize: 20,
+      ),
+    ),
+    floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      backgroundColor: Color(0xFFff7043),
+      foregroundColor: Colors.white,
+    ),
+    sliderTheme: SliderThemeData(
+      activeTrackColor: const Color(0xFFff7043),
+      thumbColor: const Color(0xFFff7043),
+      inactiveTrackColor: const Color(0xFFff7043).withOpacity(0.3),
+      overlayColor: const Color(0xFFff7043).withOpacity(0.2),
+    ),
+    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+      backgroundColor: Colors.white,
+      selectedItemColor: Color(0xFFff7043),
+      unselectedItemColor: Color(0xFFa1887f), // Brownish Grey
+    ),
+    listTileTheme: const ListTileThemeData(
+      textColor: Color(0xFF5d4037),
+      iconColor: Color(0xFFffab40),
     ),
   );
 }
