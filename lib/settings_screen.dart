@@ -11,6 +11,16 @@ class SettingsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeManager = Provider.of<ThemeManager>(context);
 
+    // Reorder themes with dark themes first, as requested.
+    final orderedThemes = [
+      AppTheme.dark,
+      AppTheme.midnight,
+      AppTheme.dracula,
+      AppTheme.light,
+      AppTheme.ocean_breeze,
+      AppTheme.sunset,
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
@@ -26,7 +36,7 @@ class SettingsScreen extends StatelessWidget {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ),
-          ...AppTheme.values.map((theme) {
+          ...orderedThemes.map((theme) {
             return RadioListTile<AppTheme>(
               title: Text(theme.name),
               value: theme,
