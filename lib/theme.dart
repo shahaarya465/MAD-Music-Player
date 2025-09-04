@@ -222,6 +222,14 @@ class AppThemes {
       secondary: Color(0xFF566573),
       onPrimary: Colors.black,
     ),
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith<Color>((Set<WidgetState> states) {
+        if (states.contains(WidgetState.selected)) {
+          return const Color(0xFF3A6073); 
+        }
+        return Colors.white70; 
+      }),
+    ),
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
