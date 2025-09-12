@@ -17,6 +17,12 @@ class NowPlayingScreen extends StatelessWidget {
     final Song? currentSong = playerManager.currentIndex != null
         ? playerManager.currentPlaylist[playerManager.currentIndex!]
         : null;
+    
+    // ** THE FIX IS HERE **
+    // Define an inactive color that works for both light and dark themes
+    final inactiveColor = theme.brightness == Brightness.dark
+        ? Colors.white54
+        : Colors.black54;
 
     return Scaffold(
       endDrawer: const Drawer(
@@ -81,7 +87,7 @@ class NowPlayingScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          "MAD Music Player", // Placeholder
+                          "MAD Music", // Placeholder
                           style: theme.textTheme.titleMedium,
                         ),
                       ],
@@ -119,9 +125,10 @@ class NowPlayingScreen extends StatelessWidget {
                       children: [
                         IconButton(
                           icon: Icon(
-                            playerManager.isShuffle
-                                ? Icons.shuffle_on
-                                : Icons.shuffle,
+                            Icons.shuffle,
+                            color: playerManager.isShuffle
+                                ? theme.colorScheme.primary
+                                : inactiveColor,
                           ),
                           iconSize: 32,
                           onPressed: playerManager.toggleShuffle,
@@ -154,11 +161,12 @@ class NowPlayingScreen extends StatelessWidget {
                         ),
                         IconButton(
                           icon: Icon(
-                            playerManager.repeatMode == RepeatMode.none
-                                ? Icons.repeat
-                                : playerManager.repeatMode == RepeatMode.one
-                                    ? Icons.repeat_one
-                                    : Icons.repeat_on,
+                            playerManager.repeatMode == RepeatMode.one
+                                ? Icons.repeat_one
+                                : Icons.repeat,
+                            color: playerManager.repeatMode != RepeatMode.none
+                                ? theme.colorScheme.primary
+                                : inactiveColor,
                           ),
                           iconSize: 32,
                           onPressed: playerManager.toggleRepeat,
