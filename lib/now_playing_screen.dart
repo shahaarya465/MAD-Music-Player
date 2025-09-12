@@ -81,7 +81,7 @@ class NowPlayingScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          "MAD Music Player", // Placeholder
+                          "MAD Music", // Placeholder
                           style: theme.textTheme.titleMedium,
                         ),
                       ],
