@@ -1,11 +1,7 @@
-
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
 import 'home_screen.dart';
 import 'library_screen.dart';
 import 'mini_player.dart';
-import 'player_manager.dart';
 import 'settings_screen.dart';
 import 'songs_screen.dart';
 
@@ -43,28 +39,7 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Consumer<PlayerManager>(
-            builder: (context, playerManager, child) {
-              if (playerManager.currentSongTitle == null) {
-                return const SizedBox.shrink();
-              }
-              return MiniPlayer(
-                songTitle: playerManager.currentSongTitle!,
-                isPlaying: playerManager.isPlaying,
-                position: playerManager.position,
-                duration: playerManager.duration,
-                onPlayPause: () => playerManager.isPlaying
-                    ? playerManager.pause()
-                    : playerManager.resume(),
-                onPrevious: playerManager.playPrevious,
-                onNext: playerManager.playNext,
-                onSeek: (value) =>
-                    playerManager.seek(Duration(seconds: value.toInt())),
-                onSeekBackward: playerManager.seekBackward10,
-                onSeekForward: playerManager.seekForward10,
-              );
-            },
-          ),
+          const MiniPlayer(), // Mini player is now self-contained
           BottomNavigationBar(
             items: const <BottomNavigationBarItem>[
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),

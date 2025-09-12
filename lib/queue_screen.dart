@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'player_manager.dart';
 import 'theme.dart';
+import 'theme_manager.dart';
 
 class QueueScreen extends StatelessWidget {
   const QueueScreen({super.key});
@@ -9,44 +10,33 @@ class QueueScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final playerManager = Provider.of<PlayerManager>(context);
-    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final themeManager = Provider.of<ThemeManager>(context);
+    final theme = Theme.of(context);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Now Playing'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: Icon(
-              playerManager.isShuffle ? Icons.shuffle_on : Icons.shuffle,
-            ),
-            onPressed: playerManager.toggleShuffle,
-          ),
-          IconButton(
-            icon: Icon(
-              playerManager.repeatMode == RepeatMode.none
-                  ? Icons.repeat
-                  : playerManager.repeatMode == RepeatMode.one
-                  ? Icons.repeat_one
-                  : Icons.repeat_on,
-            ),
-            onPressed: playerManager.toggleRepeat,
-          ),
-        ],
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDarkMode
-                ? AppThemes.darkGradient
-                : AppThemes.lightGradient,
-          ),
+    return Container(
+      // Use the gradient from the currently active theme
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: AppThemes.gradientData[themeManager.appTheme] ??
+              AppThemes.darkGradient,
         ),
-        child: playerManager.currentPlaylist.isEmpty
-            ? const Center(child: Text('No songs in queue.'))
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('Up Next'),
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+        ),
+        body: playerManager.currentPlaylist.isEmpty
+            ? Center(
+                child: Text(
+                'No songs in queue.',
+                style: theme.textTheme.bodyLarge,
+              ))
             : ReorderableListView.builder(
                 itemCount: playerManager.currentPlaylist.length,
                 itemBuilder: (context, index) {
@@ -54,20 +44,37 @@ class QueueScreen extends StatelessWidget {
                   final isCurrent = playerManager.currentIndex == index;
                   return ListTile(
                     key: ValueKey(song.id),
-                    leading: isCurrent
-                        ? const Icon(Icons.play_arrow, color: Colors.green)
-                        : const Icon(Icons.music_note),
-                    title: Text(
-                      song.title,
-                      style: TextStyle(
-                        fontWeight: isCurrent
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16.0, vertical: 4.0),
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(4.0),
+                      child: Image.asset(
+                        'assets/icon/icon.png',
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
                       ),
                     ),
-                    trailing: const Icon(Icons.drag_handle),
+                    title: Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontWeight:
+                            isCurrent ? FontWeight.bold : FontWeight.normal,
+                        color: isCurrent
+                            ? theme.colorScheme.primary
+                            : theme.textTheme.bodyLarge?.color,
+                      ),
+                    ),
+                    trailing: ReorderableDragStartListener(
+                      index: index,
+                      child: Icon(
+                        Icons.drag_handle,
+                        color: theme.iconTheme.color?.withOpacity(0.7),
+                      ),
+                    ),
                     onTap: () {
-                      // Add this onTap callback
                       playerManager.playAtIndex(index);
                     },
                   );
