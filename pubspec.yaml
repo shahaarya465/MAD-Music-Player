@@ -18,7 +18,7 @@ dependencies:
   shared_preferences: ^2.2.3
   provider: ^6.1.2
   uuid: ^4.4.0
-  flutter_launcher_icons: "^0.13.1"
+  flutter_launcher_icons: ^0.14.4
 
 flutter_launcher_icons:
   android: true
