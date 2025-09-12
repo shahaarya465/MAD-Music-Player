@@ -1,53 +1,35 @@
 import 'package:flutter/material.dart';
-import 'queue_screen.dart';
+import 'package:provider/provider.dart';
+import 'player_manager.dart';
+import 'now_playing_screen.dart'; // Import the new screen
 
 class MiniPlayer extends StatelessWidget {
-  final String songTitle;
-  final bool isPlaying;
-  final Duration position;
-  final Duration duration;
-  final VoidCallback onPlayPause;
-  final VoidCallback onSeekForward;
-  final VoidCallback onSeekBackward;
-  final VoidCallback onNext;
-  final VoidCallback onPrevious;
-  final ValueChanged<double> onSeek;
-
   const MiniPlayer({
     super.key,
-    required this.songTitle,
-    required this.isPlaying,
-    required this.position,
-    required this.duration,
-    required this.onPlayPause,
-    required this.onSeekForward,
-    required this.onSeekBackward,
-    required this.onNext,
-    required this.onPrevious,
-    required this.onSeek,
   });
 
   @override
   Widget build(BuildContext context) {
+    final playerManager = Provider.of<PlayerManager>(context);
     final theme = Theme.of(context);
-    final primaryColor = theme.colorScheme.primary;
-    final onSurfaceColor = theme.colorScheme.onSurface;
-    final backgroundColor = theme.cardColor.withOpacity(0.95);
+
+    // If there's no song, don't show anything.
+    if (playerManager.currentSongTitle == null) {
+      return const SizedBox.shrink();
+    }
 
     return GestureDetector(
+      // When the mini player is tapped, navigate to the full NowPlayingScreen
       onTap: () {
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          builder: (context) => const FractionallySizedBox(
-            heightFactor: 0.8,
-            child: QueueScreen(),
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const NowPlayingScreen(),
           ),
         );
       },
       child: Container(
         decoration: BoxDecoration(
-          color: backgroundColor,
+          color: theme.cardColor.withOpacity(0.95),
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(20),
             topRight: Radius.circular(20),
@@ -60,77 +42,75 @@ class MiniPlayer extends StatelessWidget {
             ),
           ],
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SliderTheme(
-                data: SliderTheme.of(context).copyWith(
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 8.0,
-                  ),
-                  overlayShape: const RoundSliderOverlayShape(
-                    overlayRadius: 12.0,
-                  ),
-                  trackHeight: 2.0,
-                  activeTrackColor: primaryColor,
-                  inactiveTrackColor: primaryColor.withOpacity(0.3),
-                  thumbColor: primaryColor,
-                ),
-                child: Slider(
-                  min: 0,
-                  max: duration.inSeconds.toDouble() > 0
-                      ? duration.inSeconds.toDouble()
-                      : 0.0,
-                  value: position.inSeconds.toDouble().clamp(
-                        0.0,
-                        duration.inSeconds.toDouble(),
-                      ),
-                  onChanged: onSeek,
-                ),
-              ),
-              Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Linear progress indicator for the song
+            LinearProgressIndicator(
+              value: (playerManager.duration.inSeconds > 0)
+                  ? playerManager.position.inSeconds /
+                      playerManager.duration.inSeconds
+                  : 0.0,
+              backgroundColor:
+                  theme.colorScheme.primary.withOpacity(0.3),
+              valueColor:
+                  AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+            ),
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
                 children: [
+                  // Album art using your logo
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4.0),
+                    child: Image.asset(
+                      'assets/icon/icon.png',
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Song title
                   Expanded(
                     child: Text(
-                      songTitle,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: onSurfaceColor,
-                      ),
+                      playerManager.currentSongTitle!,
+                      style: theme.textTheme.bodyLarge,
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
                     ),
                   ),
+                  const SizedBox(width: 12),
+                  // Playback controls
                   IconButton(
-                    icon: Icon(
-                      Icons.skip_previous_rounded,
-                      color: onSurfaceColor,
-                    ),
-                    onPressed: onPrevious,
-                    iconSize: 28,
+                    icon: const Icon(Icons.skip_previous_rounded),
+                    onPressed: playerManager.playPrevious,
                   ),
                   IconButton(
                     icon: Icon(
-                      isPlaying
-                          ? Icons.pause_circle_filled_rounded
-                          : Icons.play_circle_filled_rounded,
-                      color: primaryColor,
+                      playerManager.isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      color: theme.colorScheme.primary,
                     ),
-                    onPressed: onPlayPause,
-                    iconSize: 42,
+                    iconSize: 36,
+                    onPressed: () {
+                      if (playerManager.isPlaying) {
+                        playerManager.pause();
+                      } else {
+                        playerManager.resume();
+                      }
+                    },
                   ),
                   IconButton(
-                    icon: Icon(Icons.skip_next_rounded, color: onSurfaceColor),
-                    onPressed: onNext,
-                    iconSize: 28,
+                    icon: const Icon(Icons.skip_next_rounded),
+                    onPressed: playerManager.playNext,
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -267,18 +267,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, pm, child) {
           if (pm.currentSongTitle == null) return const SizedBox.shrink();
-          return MiniPlayer(
-            songTitle: pm.currentSongTitle!,
-            isPlaying: pm.isPlaying,
-            position: pm.position,
-            duration: pm.duration,
-            onPlayPause: () => pm.isPlaying ? pm.pause() : pm.resume(),
-            onPrevious: pm.playPrevious,
-            onNext: pm.playNext,
-            onSeek: (value) => pm.seek(Duration(seconds: value.toInt())),
-            onSeekBackward: pm.seekBackward10,
-            onSeekForward: pm.seekForward10,
-          );
+          // The MiniPlayer is now self-contained and doesn't need parameters.
+          return const MiniPlayer();
         },
       ),
       body: Container(
