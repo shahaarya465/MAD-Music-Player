@@ -237,6 +237,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: "library_fab",
         onPressed: _showCreatePlaylistDialog,
         label: Text(
           'New Playlist',

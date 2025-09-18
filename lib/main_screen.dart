@@ -18,7 +18,7 @@ class _MainScreenState extends State<MainScreen> {
   static const List<Widget> _screens = <Widget>[
     HomeScreen(),
     SongsScreen(),
-    LibraryScreen(), // This will be your renamed playlist browser
+    LibraryScreen(),
     SettingsScreen(),
   ];
 
@@ -31,15 +31,11 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        // Use IndexedStack to keep state of screens
-        index: _selectedIndex,
-        children: _screens,
-      ),
+      body: IndexedStack(index: _selectedIndex, children: _screens),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const MiniPlayer(), // Mini player is now self-contained
+          const MiniPlayer(),
           BottomNavigationBar(
             items: const <BottomNavigationBarItem>[
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
@@ -58,7 +54,6 @@ class _MainScreenState extends State<MainScreen> {
             ],
             currentIndex: _selectedIndex,
             onTap: _onItemTapped,
-            // These properties are important for making the bar look good with more than 3 items
             type: BottomNavigationBarType.fixed,
             selectedItemColor: Theme.of(context).colorScheme.primary,
             unselectedItemColor: Colors.grey,
