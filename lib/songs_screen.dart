@@ -21,17 +21,15 @@ class SongsScreen extends StatefulWidget {
 
 class _SongsScreenState extends State<SongsScreen> {
   List<Song> _allSongs = [];
-  List<Song> _filteredSongs = []; // ADDED: List for filtered results
+  List<Song> _filteredSongs = [];
   late Directory _songsDir;
 
-  // ADDED: Controller for the search bar
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _initializeDirectoriesAndLoad();
-    // ADDED: Listener to trigger filtering when text changes
     _searchController.addListener(() {
       _filterSongs(_searchController.text);
     });
@@ -39,12 +37,10 @@ class _SongsScreenState extends State<SongsScreen> {
 
   @override
   void dispose() {
-    // ADDED: Dispose the controller
     _searchController.dispose();
     super.dispose();
   }
 
-  // ADDED: Method to filter songs
   void _filterSongs(String query) {
     if (query.isEmpty) {
       setState(() {
@@ -89,7 +85,7 @@ class _SongsScreenState extends State<SongsScreen> {
       if (mounted) {
         setState(() {
           _allSongs = songList;
-          _filteredSongs = songList; // Initialize filtered list
+          _filteredSongs = songList;
         });
       }
     }
@@ -148,6 +144,7 @@ class _SongsScreenState extends State<SongsScreen> {
         elevation: 0,
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: "songs_fab", // Unique hero tag
         onPressed: _importSongsToLibrary,
         label: Text(
           'Import Songs',
@@ -161,22 +158,18 @@ class _SongsScreenState extends State<SongsScreen> {
         ),
       ),
       body: Column(
-        // WRAPPED body in a Column
         children: [
-          // ADDED: SearchBarWidget
           SearchBarWidget(
             controller: _searchController,
             hintText: 'Search all songs...',
             onChanged: _filterSongs,
           ),
           Expanded(
-            // WRAPPED ListView in an Expanded widget
             child: _filteredSongs.isEmpty
                 ? const Center(
                     child: Text('No songs found.', textAlign: TextAlign.center),
                   )
                 : ListView.builder(
-                    // CHANGED: Use _filteredSongs
                     itemCount: _filteredSongs.length,
                     itemBuilder: (context, index) {
                       final song = _filteredSongs[index];
@@ -184,7 +177,6 @@ class _SongsScreenState extends State<SongsScreen> {
                         leading: const Icon(Icons.music_note),
                         title: Text(song.title),
                         onTap: () {
-                          // CHANGED: Pass the filtered list to the player
                           playerManager.play(_filteredSongs, index);
                         },
                       );
