@@ -2,29 +2,36 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:path_provider/path_provider.dart';
-import '../screens/playlist_detail_screen.dart'; // For the Song class
+import 'package:youtube_explode_dart/youtube_explode_dart.dart';
+import '../models/song.dart';
 
 enum RepeatMode { none, one, all }
 
 class PlayerManager with ChangeNotifier {
+  // Player and services
   final AudioPlayer _audioPlayer = AudioPlayer();
-  PlayerState _playerState = PlayerState.stopped;
+  final YoutubeExplode _youtubeExplode = YoutubeExplode();
+
+  // Player state
+  PlayerState _playerState = PlayerState(false, ProcessingState.idle);
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
+  // Playlist state
   List<Song> _currentPlaylist = [];
   List<Song> _originalPlaylist = [];
   int? _currentIndex;
   bool _isShuffle = false;
   RepeatMode _repeatMode = RepeatMode.none;
 
-  // NEW: For tracking recently played songs
+  // Recently played
   List<String> _recentlyPlayedSongIDs = [];
   List<String> get recentlyPlayedSongIDs => _recentlyPlayedSongIDs;
 
-  bool get isPlaying => _playerState == PlayerState.playing;
+  // Getters for UI
+  bool get isPlaying => _audioPlayer.playing;
   Duration get duration => _duration;
   Duration get position => _position;
   List<Song> get currentPlaylist => _currentPlaylist;
@@ -32,34 +39,45 @@ class PlayerManager with ChangeNotifier {
   bool get isShuffle => _isShuffle;
   RepeatMode get repeatMode => _repeatMode;
 
-  String? get currentSongTitle {
+  Song? get currentSong {
     if (_currentIndex != null && _currentIndex! < _currentPlaylist.length) {
-      return _currentPlaylist[_currentIndex!].title;
+      return _currentPlaylist[_currentIndex!];
     }
     return null;
   }
 
+  String? get currentSongTitle => currentSong?.title;
+
   PlayerManager() {
-    _loadRecents(); // Load history on startup
-    _audioPlayer.onPlayerStateChanged.listen((state) {
+    _loadRecents();
+    _setupAudioPlayerListeners();
+  }
+
+  void _setupAudioPlayerListeners() {
+    _audioPlayer.playerStateStream.listen((state) {
       _playerState = state;
       notifyListeners();
     });
-    _audioPlayer.onDurationChanged.listen((newDuration) {
-      _duration = newDuration;
+
+    _audioPlayer.durationStream.listen((d) {
+      _duration = d ?? Duration.zero;
       notifyListeners();
     });
-    _audioPlayer.onPositionChanged.listen((newPosition) {
-      _position = newPosition;
+
+    _audioPlayer.positionStream.listen((p) {
+      _position = p;
       notifyListeners();
     });
-    _audioPlayer.onPlayerComplete.listen((_) {
-      playNext();
+
+    _audioPlayer.processingStateStream.listen((state) {
+      if (state == ProcessingState.completed) {
+        playNext();
+      }
     });
   }
 
   Future<void> play(List<Song> playlist, int startIndex) async {
-    _originalPlaylist = List.from(playlist); // Store the original order
+    _originalPlaylist = List.from(playlist);
     _currentPlaylist = List.from(playlist);
     _currentIndex = startIndex;
 
@@ -70,20 +88,42 @@ class PlayerManager with ChangeNotifier {
       );
     }
 
-    if (_currentIndex != null) {
-      final song = _currentPlaylist[_currentIndex!];
-      await _audioPlayer.play(DeviceFileSource(song.path));
+    await _playCurrentSong();
+  }
+
+  Future<void> _playCurrentSong() async {
+    final song = currentSong;
+    if (song == null) return;
+
+    try {
+      if (song.type == SongType.local) {
+        // Play from a local file path
+        await _audioPlayer.setAudioSource(
+          AudioSource.uri(Uri.file(song.path!)),
+        );
+      } else {
+        // It's an online song, get the stream from YouTube
+        var manifest = await _youtubeExplode.videos.streamsClient.getManifest(
+          song.videoId!,
+        );
+        var streamInfo = manifest.audioOnly.withHighestBitrate();
+        var streamUrl = streamInfo.url;
+        await _audioPlayer.setAudioSource(AudioSource.uri(streamUrl));
+      }
+
+      _audioPlayer.play();
       _addSongToRecents(song.id);
+    } catch (e) {
+      print("Error playing song: $e");
+      // Optionally, skip to the next song on error
+      playNext();
     }
   }
 
-  // Add this method to play a song by its index
   Future<void> playAtIndex(int index) async {
     if (index >= 0 && index < _currentPlaylist.length) {
       _currentIndex = index;
-      final song = _currentPlaylist[index];
-      await _audioPlayer.play(DeviceFileSource(song.path));
-      _addSongToRecents(song.id);
+      await _playCurrentSong();
     }
   }
 
@@ -113,7 +153,7 @@ class PlayerManager with ChangeNotifier {
   }
 
   Future<void> pause() async => await _audioPlayer.pause();
-  Future<void> resume() async => await _audioPlayer.resume();
+  Future<void> resume() async => await _audioPlayer.play();
   Future<void> seek(Duration newPosition) async =>
       await _audioPlayer.seek(newPosition);
 
@@ -127,44 +167,49 @@ class PlayerManager with ChangeNotifier {
   }
 
   Future<void> playNext() async {
-    if (_currentIndex != null && _currentPlaylist.isNotEmpty) {
-      if (_repeatMode == RepeatMode.one) {
-        // repeat current song
-      } else if (_isShuffle) {
-        _currentIndex = Random().nextInt(_currentPlaylist.length);
-      } else {
-        _currentIndex = (_currentIndex! + 1);
-        if (_currentIndex! >= _currentPlaylist.length) {
-          if (_repeatMode == RepeatMode.all) {
-            _currentIndex = 0;
-          } else {
-            stop();
-            return;
-          }
-        }
-      }
-      await play(_currentPlaylist, _currentIndex!);
+    if (_currentIndex == null || _currentPlaylist.isEmpty) return;
+
+    if (_repeatMode == RepeatMode.one) {
+      seek(Duration.zero);
+      resume();
+      return;
     }
+
+    if (_isShuffle) {
+      _currentIndex = Random().nextInt(_currentPlaylist.length);
+    } else {
+      _currentIndex = _currentIndex! + 1;
+    }
+
+    if (_currentIndex! >= _currentPlaylist.length) {
+      if (_repeatMode == RepeatMode.all) {
+        _currentIndex = 0;
+      } else {
+        await stop();
+        return;
+      }
+    }
+    await _playCurrentSong();
   }
 
   Future<void> playPrevious() async {
-    if (_currentIndex != null && _currentPlaylist.isNotEmpty) {
-      if (_isShuffle) {
-        _currentIndex = Random().nextInt(_currentPlaylist.length);
-      } else {
-        _currentIndex =
-            (_currentIndex! - 1 + _currentPlaylist.length) %
-            _currentPlaylist.length;
-      }
-      await play(_currentPlaylist, _currentIndex!);
+    if (_currentIndex == null || _currentPlaylist.isEmpty) return;
+
+    if (_isShuffle) {
+      _currentIndex = Random().nextInt(_currentPlaylist.length);
+    } else {
+      _currentIndex =
+          (_currentIndex! - 1 + _currentPlaylist.length) %
+          _currentPlaylist.length;
     }
+    await _playCurrentSong();
   }
 
   void toggleShuffle() {
     _isShuffle = !_isShuffle;
 
     if (_currentPlaylist.isNotEmpty && _currentIndex != null) {
-      final currentSongId = _currentPlaylist[_currentIndex!].id;
+      final currentSongId = currentSong!.id;
 
       if (_isShuffle) {
         _currentPlaylist.shuffle();
@@ -175,32 +220,27 @@ class PlayerManager with ChangeNotifier {
       _currentIndex = _currentPlaylist.indexWhere((s) => s.id == currentSongId);
     }
 
+    // Update shuffle mode for just_audio
+    _audioPlayer.setShuffleModeEnabled(_isShuffle);
+
     notifyListeners();
   }
 
   void toggleRepeat() {
     if (_repeatMode == RepeatMode.none) {
       _repeatMode = RepeatMode.all;
+      _audioPlayer.setLoopMode(LoopMode.all);
     } else if (_repeatMode == RepeatMode.all) {
       _repeatMode = RepeatMode.one;
+      _audioPlayer.setLoopMode(LoopMode.one);
     } else {
       _repeatMode = RepeatMode.none;
+      _audioPlayer.setLoopMode(LoopMode.off);
     }
     notifyListeners();
   }
 
-  void seekForward10() {
-    if (_duration == Duration.zero) return;
-    final newPosition = _position + const Duration(seconds: 10);
-    seek(newPosition > _duration ? _duration : newPosition);
-  }
-
-  void seekBackward10() {
-    if (_duration == Duration.zero) return;
-    final newPosition = _position - const Duration(seconds: 10);
-    seek(newPosition < Duration.zero ? Duration.zero : newPosition);
-  }
-
+  // --- Recents Management ---
   Future<void> _addSongToRecents(String songId) async {
     _recentlyPlayedSongIDs.remove(songId);
     _recentlyPlayedSongIDs.insert(0, songId);
@@ -212,11 +252,15 @@ class PlayerManager with ChangeNotifier {
   }
 
   Future<void> _saveRecents() async {
-    final documentsDir = await getApplicationDocumentsDirectory();
-    final recentsFile = File(
-      '${documentsDir.path}/MAD Music Player/recents.json',
-    );
-    await recentsFile.writeAsString(jsonEncode(_recentlyPlayedSongIDs));
+    try {
+      final documentsDir = await getApplicationDocumentsDirectory();
+      final recentsFile = File(
+        '${documentsDir.path}/MAD Music Player/recents.json',
+      );
+      await recentsFile.writeAsString(jsonEncode(_recentlyPlayedSongIDs));
+    } catch (e) {
+      print("Error saving recents: $e");
+    }
   }
 
   Future<void> _loadRecents() async {
@@ -231,13 +275,14 @@ class PlayerManager with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      // Handle error
+      print("Error loading recents: $e");
     }
   }
 
   @override
   void dispose() {
     _audioPlayer.dispose();
+    _youtubeExplode.close();
     super.dispose();
   }
 }

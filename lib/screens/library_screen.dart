@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../models/playlist.dart';
-import 'playlist_detail_screen.dart';
+import '../models/song.dart';
+import '../services/import_service.dart';
 import '../widgets/search_bar_widget.dart';
+import 'online_playlist_screen.dart';
+import 'playlist_detail_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -16,13 +18,15 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
+  // --- State variables from your original code ---
   bool _isGridView = false;
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
-  late Directory _songsDir;
-
   final TextEditingController _searchController = TextEditingController();
   List<Playlist> _filteredPlaylists = [];
+
+  // New service for importing
+  final ImportService _importService = ImportService();
 
   @override
   void initState() {
@@ -39,6 +43,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.dispose();
   }
 
+  // --- Methods from your original code ---
+
   Future<void> _initAndLoad() async {
     final documentsDir = await getApplicationDocumentsDirectory();
     final madMusicPlayerDir = Directory(
@@ -47,11 +53,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
     if (!await madMusicPlayerDir.exists()) await madMusicPlayerDir.create();
 
     _playlistsDir = Directory('${madMusicPlayerDir.path}/Playlists');
-    _songsDir = Directory('${madMusicPlayerDir.path}/Songs');
-    final libraryFile = File('${madMusicPlayerDir.path}/library.json');
-
     if (!await _playlistsDir.exists()) await _playlistsDir.create();
-    if (!await _songsDir.exists()) await _songsDir.create();
+
+    final libraryFile = File('${madMusicPlayerDir.path}/library.json');
     if (!await libraryFile.exists()) await libraryFile.writeAsString('{}');
 
     final List<Playlist> loadedPlaylists = [];
@@ -62,10 +66,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
       }
     }
 
-    setState(() {
-      _playlists = loadedPlaylists;
-      _filteredPlaylists = loadedPlaylists;
-    });
+    if (mounted) {
+      setState(() {
+        _playlists = loadedPlaylists;
+        _filteredPlaylists = loadedPlaylists;
+      });
+    }
   }
 
   void _filterPlaylists(String query) {
@@ -127,6 +133,70 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await newFile.writeAsString(jsonEncode(updatedContent));
 
     await _initAndLoad();
+  }
+
+  // --- New Methods for Online Playlist Import ---
+
+  void _handlePlaylistImport(String url) async {
+    if (url.trim().isEmpty) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Importing playlist...')),
+    );
+
+    try {
+      final Map<String, List<Song>> importedData = await _importService
+          .importPlaylist(url);
+      final playlistTitle = importedData.keys.first;
+      final onlineSongs = importedData.values.first;
+
+      messenger.hideCurrentSnackBar();
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OnlinePlaylistScreen(
+              playlistName: playlistTitle,
+              songs: onlineSongs,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+    }
+  }
+
+  // --- Dialogs from your original code (with new import dialog) ---
+
+  Future<void> _showImportPlaylistDialog() async {
+    final controller = TextEditingController();
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Import Online Playlist'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(hintText: "Paste YouTube URL here"),
+        ),
+        actions: [
+          TextButton(
+            child: const Text('Cancel'),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          TextButton(
+            child: const Text('Import'),
+            onPressed: () {
+              Navigator.of(context).pop();
+              _handlePlaylistImport(controller.text);
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _showCreatePlaylistDialog() async {
@@ -228,6 +298,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          // ** NEW: Import Button is added here **
+          IconButton(
+            icon: const Icon(Icons.download_for_offline_outlined),
+            onPressed: _showImportPlaylistDialog,
+            tooltip: 'Import Playlist from URL',
+          ),
           IconButton(
             icon: Icon(
               _isGridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
@@ -269,7 +345,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                         ).textTheme.bodyLarge?.copyWith(fontSize: 18),
                       ),
                     )
-                  // CHANGED: Removed the check for _allSongIDs
                   : _isGridView
                   ? _buildGridView()
                   : _buildListView(),
@@ -280,6 +355,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  // ** UI RESTORED: Your original _buildListView is back **
   Widget _buildListView() {
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
@@ -349,6 +425,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
+  // ** UI RESTORED: Your original _buildGridView is back **
   Widget _buildGridView() {
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
@@ -386,7 +463,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // CHANGED: Removed conditional icon logic
                       Icon(
                         Icons.queue_music_rounded,
                         color: Theme.of(context).iconTheme.color,

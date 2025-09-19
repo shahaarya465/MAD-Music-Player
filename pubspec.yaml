@@ -1,5 +1,5 @@
-name: music_player_app
-description: "A new Flutter project."
+name: mad_music
+description: "An open source music player which allows you to stream playlists from youtube, soptify and local mp3 files"
 publish_to: "none"
 
 version: 1.0.0+1
@@ -19,6 +19,11 @@ dependencies:
   provider: ^6.1.2
   uuid: ^4.4.0
   flutter_launcher_icons: ^0.14.4
+  http: ^1.2.1
+  flutter_dotenv: ^5.1.0
+  youtube_explode_dart: ^2.1.0
+  just_audio: ^0.9.36
+  just_audio_background: ^0.0.1-beta.11
 
 flutter_launcher_icons:
   android: true
@@ -34,3 +39,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/
+    - .env
