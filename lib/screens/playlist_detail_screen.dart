@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'playlist.dart';
-import 'player_manager.dart';
-import 'mini_player.dart';
+import '../models/playlist.dart';
+import '../providers/player_manager.dart';
+import '../widgets/mini_player.dart';
 import 'add_songs_from_library_screen.dart';
-import 'theme.dart';
-import 'search_bar_widget.dart';
-import 'theme_manager.dart';
+import '../theme/theme.dart';
+import '../widgets/search_bar_widget.dart';
+import '../providers/theme_manager.dart';
 
 class Song {
   final String id;

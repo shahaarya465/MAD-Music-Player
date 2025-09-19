@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'theme.dart';
+import '../theme/theme.dart';
 
 class ThemeManager with ChangeNotifier {
   // Change from ThemeMode to our new AppTheme enum

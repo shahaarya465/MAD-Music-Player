@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'player_manager.dart';
-import 'now_playing_screen.dart'; // Import the new screen
+import '../providers/player_manager.dart';
+import '../screens/now_playing_screen.dart'; // Import the new screen
 
 class MiniPlayer extends StatelessWidget {
   const MiniPlayer({

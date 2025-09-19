@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'playlist_detail_screen.dart';
-import 'search_bar_widget.dart';
-import 'theme.dart';
+import '../widgets/search_bar_widget.dart';
+import '../theme/theme.dart';
 
 class AddSongsFromLibraryScreen extends StatefulWidget {
   final Set<String> existingSongIDs;

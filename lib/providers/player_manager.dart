@@ -4,7 +4,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
-import 'playlist_detail_screen.dart'; // For the Song class
+import '../screens/playlist_detail_screen.dart'; // For the Song class
 
 enum RepeatMode { none, one, all }
 

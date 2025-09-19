@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'main_screen.dart';
-import 'theme.dart';
-import 'theme_manager.dart';
-import 'player_manager.dart';
+import 'screens/main_screen.dart';
+import 'theme/theme.dart';
+import 'providers/theme_manager.dart';
+import 'providers/player_manager.dart';
 
 void main() {
   runApp(
@@ -27,9 +27,7 @@ class MyApp extends StatelessWidget {
       builder: (context, themeManager, child) {
         return MaterialApp(
           title: 'MAD Music',
-          // Get the ThemeData from our map based on the selected theme
           theme: AppThemes.themeData[themeManager.appTheme],
-          // No need for darkTheme or themeMode anymore
           home: const MainScreen(),
         );
       },
