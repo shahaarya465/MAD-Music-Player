@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import '../providers/player_manager.dart';
 import '../theme/theme.dart';
 import '../providers/theme_manager.dart';
+import '../models/song.dart';
 import 'queue_screen.dart';
-import 'playlist_detail_screen.dart';
 
 class NowPlayingScreen extends StatelessWidget {
   const NowPlayingScreen({super.key});

@@ -1,15 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
-
+import '../models/song.dart';
 import '../providers/player_manager.dart';
-import 'playlist_detail_screen.dart';
 import '../widgets/search_bar_widget.dart';
 
 class SongsScreen extends StatefulWidget {
@@ -23,7 +21,6 @@ class _SongsScreenState extends State<SongsScreen> {
   List<Song> _allSongs = [];
   List<Song> _filteredSongs = [];
   late Directory _songsDir;
-
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -51,7 +48,6 @@ class _SongsScreenState extends State<SongsScreen> {
     final results = _allSongs.where((song) {
       return song.title.toLowerCase().contains(query.toLowerCase());
     }).toList();
-
     setState(() {
       _filteredSongs = results;
     });
@@ -64,7 +60,6 @@ class _SongsScreenState extends State<SongsScreen> {
     );
     _songsDir = Directory('${madMusicPlayerDir.path}/Songs');
     if (!await _songsDir.exists()) await _songsDir.create();
-
     _loadAllSongs();
   }
 
@@ -78,8 +73,14 @@ class _SongsScreenState extends State<SongsScreen> {
       final musicLibrary = jsonDecode(await libraryFile.readAsString());
       final songList = <Song>[];
       musicLibrary.forEach((songId, details) {
+        // ** FIX: Added the required 'type' parameter **
         songList.add(
-          Song(id: songId, title: details['title'], path: details['path']),
+          Song(
+            id: songId,
+            title: details['title'],
+            path: details['path'],
+            type: SongType.local, // Specify that this is a local song
+          ),
         );
       });
       if (mounted) {
@@ -101,8 +102,8 @@ class _SongsScreenState extends State<SongsScreen> {
         '${(await getApplicationDocumentsDirectory()).path}/MAD Music Player',
       );
       final libraryFile = File('${madMusicPlayerDir.path}/library.json');
-      final Map<String, dynamic> libraryContent = Map<String, dynamic>.from(
-        jsonDecode(await libraryFile.readAsString()),
+      final Map<String, dynamic> libraryContent = jsonDecode(
+        await libraryFile.readAsString(),
       );
       int importCount = 0;
 
@@ -144,7 +145,7 @@ class _SongsScreenState extends State<SongsScreen> {
         elevation: 0,
       ),
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: "songs_fab", // Unique hero tag
+        heroTag: "songs_fab",
         onPressed: _importSongsToLibrary,
         label: Text(
           'Import Songs',
