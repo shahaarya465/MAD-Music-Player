@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
 import 'library_screen.dart';
-import 'mini_player.dart';
+import '../widgets/mini_player.dart';
 import 'settings_screen.dart';
 import 'songs_screen.dart';
 

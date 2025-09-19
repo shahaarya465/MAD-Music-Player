@@ -8,9 +8,9 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
-import 'player_manager.dart';
+import '../providers/player_manager.dart';
 import 'playlist_detail_screen.dart';
-import 'search_bar_widget.dart';
+import '../widgets/search_bar_widget.dart';
 
 class SongsScreen extends StatefulWidget {
   const SongsScreen({super.key});

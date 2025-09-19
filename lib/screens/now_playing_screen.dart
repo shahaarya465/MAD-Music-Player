@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'player_manager.dart';
-import 'theme.dart';
-import 'theme_manager.dart';
+import '../providers/player_manager.dart';
+import '../theme/theme.dart';
+import '../providers/theme_manager.dart';
 import 'queue_screen.dart';
 import 'playlist_detail_screen.dart';
 
