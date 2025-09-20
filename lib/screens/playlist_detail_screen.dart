@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,9 +11,7 @@ import '../models/song.dart';
 import '../providers/player_manager.dart';
 import '../widgets/mini_player.dart';
 import 'add_songs_from_library_screen.dart';
-import '../theme/theme.dart';
 import '../widgets/search_bar_widget.dart';
-import '../providers/theme_manager.dart';
 import '../services/import_service.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
@@ -213,124 +212,187 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final playerManager = Provider.of<PlayerManager>(context, listen: false);
-    final themeManager = Provider.of<ThemeManager>(context);
-
+    final theme = Theme.of(context);
     final bool showAddButton =
         !widget.isAllSongsPlaylist && widget.playlist.url == null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.playlist.name),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          if (widget.playlist.url != null)
-            IconButton(
-              icon: const Icon(Icons.refresh),
-              onPressed: _refreshPlaylist,
-              tooltip: 'Refresh Playlist',
-            ),
-        ],
-      ),
-      floatingActionButton: showAddButton
-          ? FloatingActionButton.extended(
-              onPressed: _addSongsToPlaylist,
-              label: Icon(
-                Icons.add,
-                color: Theme.of(
-                  context,
-                ).floatingActionButtonTheme.foregroundColor,
-              ),
-              shape: const CircleBorder(),
-            )
-          : null,
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, pm, child) {
           if (pm.currentSongTitle == null) return const SizedBox.shrink();
           return const MiniPlayer();
         },
       ),
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: AppThemes.gradientData[themeManager.appTheme] ??
-                AppThemes.darkGradient,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              SearchBarWidget(
-                controller: _searchController,
-                hintText: 'Search in playlist...',
-                onChanged: _filterSongs,
-              ),
-              Expanded(
-                child: _songs.isEmpty
-                    ? Center(
-                        child: Text(
-                          "This playlist is empty.",
-                          textAlign: TextAlign.center,
-                          style: Theme.of(
-                            context,
-                          ).textTheme.bodyLarge?.copyWith(fontSize: 18),
+      floatingActionButton: showAddButton
+          ? FloatingActionButton(
+              onPressed: _addSongsToPlaylist,
+              child: const Icon(Icons.add),
+            )
+          : null,
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 300.0,
+            backgroundColor: theme.scaffoldBackgroundColor,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.asset(
+                    'assets/icon/icon.png',
+                    fit: BoxFit.cover,
+                  ),
+                  BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                    child: Container(
+                      color: Colors.black.withOpacity(0.3),
+                    ),
+                  ),
+                  Center(
+                    child: Container(
+                      width: 180,
+                      height: 180,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        image: const DecorationImage(
+                          image: AssetImage('assets/icon/icon.png'),
+                          fit: BoxFit.cover,
                         ),
-                      )
-                    : ListView.builder(
-                        itemCount: _filteredSongs.length,
-                        itemBuilder: (context, index) {
-                          final song = _filteredSongs[index];
-                          return ListTile(
-                            leading: Icon(
-                              song.type == SongType.local
-                                  ? Icons.music_note
-                                  : Icons.cloud_queue,
-                              color: Theme.of(context).iconTheme.color,
-                            ),
-                            title: Text(song.title),
-                            onTap: () {
-                              playerManager.play(_filteredSongs, index);
-                            },
-                            trailing: PopupMenuButton<String>(
-                              onSelected: (value) {
-                                if (value == 'remove') {
-                                  _removeSongFromPlaylist(song);
-                                } else if (value == 'addToQueue') {
-                                  playerManager.addToQueue(song);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        '${song.title} added to queue.',
-                                      ),
-                                    ),
-                                  );
-                                }
-                              },
-                              itemBuilder: (context) =>
-                                  <PopupMenuEntry<String>>[
-                                const PopupMenuItem(
-                                  value: 'addToQueue',
-                                  child: Text('Add to Queue'),
-                                ),
-                                if (!widget.isAllSongsPlaylist &&
-                                    widget.playlist.url == null)
-                                  const PopupMenuItem(
-                                    value: 'remove',
-                                    child: Text('Remove from Playlist'),
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.5),
+                            blurRadius: 20,
+                            offset: const Offset(0, 10),
+                          )
+                        ],
                       ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+            actions: [
+              if (widget.playlist.url != null)
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  onPressed: _refreshPlaylist,
+                  tooltip: 'Refresh Playlist',
+                ),
             ],
           ),
-        ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 16),
+                  Text(
+                    widget.playlist.name,
+                    style: theme.textTheme.headlineSmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Playlist • ${_songs.length} Songs',
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () {
+                          playerManager.toggleShuffle();
+                          if (_filteredSongs.isNotEmpty) {
+                            playerManager.play(_filteredSongs, 0);
+                          }
+                        },
+                        icon: const Icon(Icons.shuffle),
+                        tooltip: 'Shuffle Play',
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          if (_filteredSongs.isNotEmpty) {
+                            playerManager.play(_filteredSongs, 0);
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          shape: const CircleBorder(),
+                          padding: const EdgeInsets.all(16),
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: theme.colorScheme.onPrimary,
+                        ),
+                        child: const Icon(Icons.play_arrow),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SearchBarWidget(
+                    controller: _searchController,
+                    hintText: 'Search in playlist...',
+                    onChanged: _filterSongs,
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final song = _filteredSongs[index];
+                return ListTile(
+                  leading: ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: Image.asset(
+                      'assets/icon/icon.png',
+                      width: 50,
+                      height: 50,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  title: Text(song.title),
+                  subtitle: Text(
+                    song.type == SongType.local ? "Local Song" : "Online",
+                  ),
+                  onTap: () {
+                    playerManager.play(_filteredSongs, index);
+                  },
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'remove') {
+                        _removeSongFromPlaylist(song);
+                      } else if (value == 'addToQueue') {
+                        playerManager.addToQueue(song);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('${song.title} added to queue.'),
+                          ),
+                        );
+                      }
+                    },
+                    itemBuilder: (context) => <PopupMenuEntry<String>>[
+                      const PopupMenuItem(
+                        value: 'addToQueue',
+                        child: Text('Add to Queue'),
+                      ),
+                      if (!widget.isAllSongsPlaylist &&
+                          widget.playlist.url == null)
+                        const PopupMenuItem(
+                          value: 'remove',
+                          child: Text('Remove from Playlist'),
+                        ),
+                    ],
+                  ),
+                );
+              },
+              childCount: _filteredSongs.length,
+            ),
+          ),
+        ],
       ),
     );
   }
