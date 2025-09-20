@@ -1,6 +1,6 @@
 # MAD Music
 
-A cross-platform music player app built with Flutter. This app allows users to play music from their local device storage, featuring essential controls like play/pause, shuffle, repeat, and background playback.
+A cross-platform music player app built with Flutter. This app allows users to play music from their local device storage and stream from online sources, featuring essential controls like play/pause, shuffle, repeat, and background playback.
 
 ## Features
 
@@ -24,10 +24,9 @@ A cross-platform music player app built with Flutter. This app allows users to p
 ## Tech Stack
 
 - **Flutter**: A framework for building cross-platform apps for iOS, Android, and the web.
-- **audio_service**: To handle background audio playback and media controls.
-- **just_audio**: A powerful audio playback library.
+- **audioplayers**: A powerful audio playback library for Flutter.
 - **provider**: For managing app state across different screens.
-- **flutter_sound**: For any additional audio processing features (if needed).
+- **youtube_explode_dart**: For fetching audio streams from YouTube.
 
 ## Setup
 
@@ -63,13 +62,6 @@ A cross-platform music player app built with Flutter. This app allows users to p
 
 Ensure your device is connected or the emulator is running.
 
-### Features to Implement
-
-- **Search**: Ability to search for specific songs in the library.
-- **Queue System**: Add songs to a queue for sequential playback.
-- **Customizable Playlist**: Allow users to create and manage custom playlists.
-- **Album Art**: Display album art for each song, whether from the local storage or fetched from a URL.
-
 ### License
 
 This project is licensed under the MIT License, see the [LICENSE](LICENSE) file for details.
@@ -80,9 +72,7 @@ Contributions are welcome! Please open issues and submit pull requests for bug f
 
 ## Author
 
-**Kavya Prajapati** 
-
-📧 [kavya31052005@gmail.com](mailto:kavya31052005@gmail.com)
+**Kavya Prajapati** 📧 [kavya31052005@gmail.com](mailto:kavya31052005@gmail.com)
 
 **Aarya Shah**
 
