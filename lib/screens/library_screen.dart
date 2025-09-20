@@ -7,7 +7,6 @@ import '../models/playlist.dart';
 import '../models/song.dart';
 import '../services/import_service.dart';
 import '../widgets/search_bar_widget.dart';
-import 'online_playlist_screen.dart';
 import 'playlist_detail_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
@@ -18,14 +17,13 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  // --- State variables from your original code ---
+  // --- State variables ---
   bool _isGridView = false;
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
   final TextEditingController _searchController = TextEditingController();
   List<Playlist> _filteredPlaylists = [];
 
-  // New service for importing
   final ImportService _importService = ImportService();
 
   @override
@@ -43,13 +41,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     super.dispose();
   }
 
-  // --- Methods from your original code ---
-
   Future<void> _initAndLoad() async {
     final documentsDir = await getApplicationDocumentsDirectory();
-    final madMusicPlayerDir = Directory(
-      '${documentsDir.path}/MAD Music Player',
-    );
+    final madMusicPlayerDir =
+        Directory('${documentsDir.path}/MAD Music Player');
     if (!await madMusicPlayerDir.exists()) await madMusicPlayerDir.create();
 
     _playlistsDir = Directory('${madMusicPlayerDir.path}/Playlists');
@@ -135,7 +130,23 @@ class _LibraryScreenState extends State<LibraryScreen> {
     await _initAndLoad();
   }
 
-  // --- New Methods for Online Playlist Import ---
+  Future<File> _getLibraryFile() async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final madMusicPlayerDir =
+        Directory('${documentsDir.path}/MAD Music Player');
+    return File('${madMusicPlayerDir.path}/library.json');
+  }
+
+  Future<Directory> _getPlaylistsDir() async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final madMusicPlayerDir =
+        Directory('${documentsDir.path}/MAD Music Player');
+    final playlistsDir = Directory('${madMusicPlayerDir.path}/Playlists');
+    if (!await playlistsDir.exists()) {
+      await playlistsDir.create();
+    }
+    return playlistsDir;
+  }
 
   void _handlePlaylistImport(String url) async {
     if (url.trim().isEmpty) return;
@@ -146,30 +157,42 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
 
     try {
-      final Map<String, List<Song>> importedData = await _importService
-          .importPlaylist(url);
+      final Map<String, List<Song>> importedData =
+          await _importService.importPlaylist(url);
       final playlistTitle = importedData.keys.first;
       final onlineSongs = importedData.values.first;
 
-      messenger.hideCurrentSnackBar();
-      if (mounted) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => OnlinePlaylistScreen(
-              playlistName: playlistTitle,
-              songs: onlineSongs,
-            ),
-          ),
-        );
+      final libraryFile = await _getLibraryFile();
+      final libraryContent = jsonDecode(await libraryFile.readAsString());
+
+      for (final song in onlineSongs) {
+        libraryContent[song.id] = {
+          'title': song.title,
+          'videoId': song.videoId,
+          'type': 'online',
+        };
       }
+      await libraryFile.writeAsString(jsonEncode(libraryContent));
+
+      final playlistsDir = await _getPlaylistsDir();
+      final newPlaylistFile = File('${playlistsDir.path}/$playlistTitle.json');
+      final playlistJson = {
+        'name': playlistTitle,
+        'songIDs': onlineSongs.map((s) => s.id).toList(),
+      };
+      await newPlaylistFile.writeAsString(jsonEncode(playlistJson));
+
+      await _initAndLoad();
+
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        SnackBar(content: Text('Successfully imported "$playlistTitle"!')),
+      );
     } catch (e) {
       messenger.hideCurrentSnackBar();
       messenger.showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
     }
   }
-
-  // --- Dialogs from your original code (with new import dialog) ---
 
   Future<void> _showImportPlaylistDialog() async {
     final controller = TextEditingController();
@@ -298,7 +321,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          // ** NEW: Import Button is added here **
           IconButton(
             icon: const Icon(Icons.download_for_offline_outlined),
             onPressed: _showImportPlaylistDialog,
@@ -346,8 +368,8 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       ),
                     )
                   : _isGridView
-                  ? _buildGridView()
-                  : _buildListView(),
+                      ? _buildGridView()
+                      : _buildListView(),
             ),
           ],
         ),
@@ -355,7 +377,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  // ** UI RESTORED: Your original _buildListView is back **
   Widget _buildListView() {
     return ListView.builder(
       padding: const EdgeInsets.all(16.0),
@@ -425,7 +446,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
     );
   }
 
-  // ** UI RESTORED: Your original _buildGridView is back **
   Widget _buildGridView() {
     return GridView.builder(
       padding: const EdgeInsets.all(16.0),
@@ -472,9 +492,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       Text(
                         playlist.name,
                         style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -498,15 +518,15 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     },
                     itemBuilder: (BuildContext context) =>
                         <PopupMenuEntry<String>>[
-                          const PopupMenuItem<String>(
-                            value: 'rename',
-                            child: Text('Rename'),
-                          ),
-                          const PopupMenuItem<String>(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
-                        ],
+                      const PopupMenuItem<String>(
+                        value: 'rename',
+                        child: Text('Rename'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Text('Delete'),
+                      ),
+                    ],
                     icon: Icon(
                       Icons.more_vert,
                       color: Theme.of(

@@ -51,7 +51,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     super.dispose();
   }
 
-  /// This function now correctly creates `Song` objects with the `SongType.local`
   Future<void> _loadSongs() async {
     final documentsDir = await getApplicationDocumentsDirectory();
     final madMusicPlayerDir = Directory(
@@ -74,14 +73,25 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     for (String songId in songIdsToLoad) {
       if (_musicLibrary.containsKey(songId)) {
         final details = _musicLibrary[songId];
-        songList.add(
-          Song(
-            id: songId,
-            title: details['title'],
-            path: details['path'],
-            type: SongType.local, // Correctly assigning the type
-          ),
-        );
+        if (details['type'] == 'online') {
+          songList.add(
+            Song(
+              id: songId,
+              title: details['title'],
+              videoId: details['videoId'],
+              type: SongType.online,
+            ),
+          );
+        } else {
+          songList.add(
+            Song(
+              id: songId,
+              title: details['title'],
+              path: details['path'],
+              type: SongType.local,
+            ),
+          );
+        }
       }
     }
 
@@ -139,10 +149,6 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     await _loadSongs();
   }
 
-  // This and other helper methods like _renameSong, _deleteSongGlobally, etc.
-  // can be kept exactly as you had them. For brevity, I'll omit them here but you should
-  // add them back in if you need them.
-
   @override
   Widget build(BuildContext context) {
     final playerManager = Provider.of<PlayerManager>(context, listen: false);
@@ -173,15 +179,13 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         },
       ),
       body: Container(
-        // ** UI RESTORED **
         width: double.infinity,
         height: double.infinity,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors:
-                AppThemes.gradientData[themeManager.appTheme] ??
+            colors: AppThemes.gradientData[themeManager.appTheme] ??
                 AppThemes.darkGradient,
           ),
         ),
@@ -212,11 +216,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                             leading: const Icon(Icons.music_note),
                             title: Text(song.title),
                             onTap: () {
-                              // This now passes the correct List<Song> type
                               playerManager.play(_filteredSongs, index);
                             },
                             trailing: PopupMenuButton<String>(
-                              // ** UI RESTORED **
                               onSelected: (value) {
                                 if (value == 'remove') {
                                   _removeSongFromPlaylist(song);
@@ -230,19 +232,18 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                     ),
                                   );
                                 }
-                                // Add other options like rename here if needed
                               },
                               itemBuilder: (context) =>
                                   <PopupMenuEntry<String>>[
-                                    const PopupMenuItem(
-                                      value: 'addToQueue',
-                                      child: Text('Add to Queue'),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'remove',
-                                      child: Text('Remove from Playlist'),
-                                    ),
-                                  ],
+                                const PopupMenuItem(
+                                  value: 'addToQueue',
+                                  child: Text('Add to Queue'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'remove',
+                                  child: Text('Remove from Playlist'),
+                                ),
+                              ],
                             ),
                           );
                         },
