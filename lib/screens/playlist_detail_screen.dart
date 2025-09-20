@@ -13,6 +13,7 @@ import 'add_songs_from_library_screen.dart';
 import '../theme/theme.dart';
 import '../widgets/search_bar_widget.dart';
 import '../providers/theme_manager.dart';
+import '../services/import_service.dart';
 
 class PlaylistDetailScreen extends StatefulWidget {
   final Playlist playlist;
@@ -36,6 +37,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<Song> _filteredSongs = [];
 
+  final ImportService _importService = ImportService();
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +52,60 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<File> _getLibraryFile() async {
+    final documentsDir = await getApplicationDocumentsDirectory();
+    final madMusicPlayerDir =
+        Directory('${documentsDir.path}/MAD Music Player');
+    return File('${madMusicPlayerDir.path}/library.json');
+  }
+
+  Future<void> _refreshPlaylist() async {
+    if (widget.playlist.url == null) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Refreshing playlist...')),
+    );
+
+    try {
+      final Map<String, List<Song>> importedData =
+          await _importService.importPlaylist(widget.playlist.url!);
+      final onlineSongs = importedData.values.first;
+      final newSongIds = onlineSongs.map((s) => s.id).toSet();
+
+      final libraryFile = await _getLibraryFile();
+      final libraryContent = jsonDecode(await libraryFile.readAsString());
+
+      for (final song in onlineSongs) {
+        if (!libraryContent.containsKey(song.id)) {
+          libraryContent[song.id] = {
+            'title': song.title,
+            'videoId': song.videoId,
+            'type': 'online',
+          };
+        }
+      }
+      await libraryFile.writeAsString(jsonEncode(libraryContent));
+
+      final playlistJson = {
+        "name": widget.playlist.name,
+        "songIDs": newSongIds.toList(),
+        "url": widget.playlist.url,
+      };
+      await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
+
+      await _loadSongs();
+
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Playlist refreshed!')),
+      );
+    } catch (e) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+    }
   }
 
   Future<void> _loadSongs() async {
@@ -65,9 +122,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       _musicLibrary = {};
     }
 
+    final freshPlaylist = await Playlist.fromFile(widget.playlist.file);
+
     final songIdsToLoad = widget.isAllSongsPlaylist
         ? _musicLibrary.keys.toList()
-        : widget.playlist.songIDs;
+        : freshPlaylist.songIDs;
 
     final songList = <Song>[];
     for (String songId in songIdsToLoad) {
@@ -133,6 +192,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
       final playlistJson = {
         "name": widget.playlist.name,
         "songIDs": widget.playlist.songIDs,
+        "url": widget.playlist.url,
       };
       await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
       await _loadSongs();
@@ -144,6 +204,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final playlistJson = {
       "name": widget.playlist.name,
       "songIDs": widget.playlist.songIDs,
+      "url": widget.playlist.url,
     };
     await widget.playlist.file.writeAsString(jsonEncode(playlistJson));
     await _loadSongs();
@@ -154,15 +215,25 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
     final playerManager = Provider.of<PlayerManager>(context, listen: false);
     final themeManager = Provider.of<ThemeManager>(context);
 
+    final bool showAddButton =
+        !widget.isAllSongsPlaylist && widget.playlist.url == null;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.playlist.name),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: [
+          if (widget.playlist.url != null)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: _refreshPlaylist,
+              tooltip: 'Refresh Playlist',
+            ),
+        ],
       ),
-      floatingActionButton: widget.isAllSongsPlaylist
-          ? null
-          : FloatingActionButton.extended(
+      floatingActionButton: showAddButton
+          ? FloatingActionButton.extended(
               onPressed: _addSongsToPlaylist,
               label: Icon(
                 Icons.add,
@@ -171,7 +242,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 ).floatingActionButtonTheme.foregroundColor,
               ),
               shape: const CircleBorder(),
-            ),
+            )
+          : null,
       bottomNavigationBar: Consumer<PlayerManager>(
         builder: (context, pm, child) {
           if (pm.currentSongTitle == null) return const SizedBox.shrink();
@@ -201,7 +273,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 child: _songs.isEmpty
                     ? Center(
                         child: Text(
-                          "This playlist is empty.\nAdd some songs!",
+                          "This playlist is empty.",
                           textAlign: TextAlign.center,
                           style: Theme.of(
                             context,
@@ -214,7 +286,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                           final song = _filteredSongs[index];
                           return ListTile(
                             leading: Icon(
-                              Icons.music_note,
+                              song.type == SongType.local
+                                  ? Icons.music_note
+                                  : Icons.cloud_queue,
                               color: Theme.of(context).iconTheme.color,
                             ),
                             title: Text(song.title),
@@ -242,7 +316,8 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   value: 'addToQueue',
                                   child: Text('Add to Queue'),
                                 ),
-                                if (!widget.isAllSongsPlaylist)
+                                if (!widget.isAllSongsPlaylist &&
+                                    widget.playlist.url == null)
                                   const PopupMenuItem(
                                     value: 'remove',
                                     child: Text('Remove from Playlist'),

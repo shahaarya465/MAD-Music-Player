@@ -17,7 +17,6 @@ class LibraryScreen extends StatefulWidget {
 }
 
 class _LibraryScreenState extends State<LibraryScreen> {
-  // --- State variables ---
   bool _isGridView = false;
   List<Playlist> _playlists = [];
   late Directory _playlistsDir;
@@ -123,7 +122,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
       }
       return;
     }
-    final updatedContent = {"name": trimmedName, "songIDs": playlist.songIDs};
+    final updatedContent = {
+      "name": trimmedName,
+      "songIDs": playlist.songIDs,
+      "url": playlist.url,
+    };
     await playlist.file.rename(newFile.path);
     await newFile.writeAsString(jsonEncode(updatedContent));
 
@@ -179,6 +182,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
       final playlistJson = {
         'name': playlistTitle,
         'songIDs': onlineSongs.map((s) => s.id).toList(),
+        'url': url,
       };
       await newPlaylistFile.writeAsString(jsonEncode(playlistJson));
 
@@ -393,7 +397,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
           child: ListTile(
             tileColor: Colors.transparent,
             leading: Icon(
-              Icons.music_note_rounded,
+              playlist.url != null
+                  ? Icons.cloud_queue
+                  : Icons.music_note_rounded,
               color: Theme.of(context).iconTheme.color,
               size: 30,
             ),
@@ -431,11 +437,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
               ),
             ),
             onTap: () async {
+              final freshPlaylist = await Playlist.fromFile(playlist.file);
               await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) =>
-                      PlaylistDetailScreen(playlist: playlist),
+                      PlaylistDetailScreen(playlist: freshPlaylist),
                 ),
               );
               _initAndLoad();
@@ -465,11 +472,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
           ),
           child: InkWell(
             onTap: () async {
+              final freshPlaylist = await Playlist.fromFile(playlist.file);
               await Navigator.push(
                 context,
                 MaterialPageRoute(
                   builder: (context) =>
-                      PlaylistDetailScreen(playlist: playlist),
+                      PlaylistDetailScreen(playlist: freshPlaylist),
                 ),
               );
               _initAndLoad();
@@ -484,7 +492,9 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Icon(
-                        Icons.queue_music_rounded,
+                        playlist.url != null
+                            ? Icons.cloud_queue
+                            : Icons.queue_music_rounded,
                         color: Theme.of(context).iconTheme.color,
                         size: 40,
                       ),
