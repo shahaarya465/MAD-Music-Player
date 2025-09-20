@@ -18,9 +18,8 @@ class NowPlayingScreen extends StatelessWidget {
         ? playerManager.currentPlaylist[playerManager.currentIndex!]
         : null;
 
-    final inactiveColor = theme.brightness == Brightness.dark
-        ? Colors.white54
-        : Colors.black54;
+    final inactiveColor =
+        theme.brightness == Brightness.dark ? Colors.white54 : Colors.black54;
 
     return Scaffold(
       endDrawer: const Drawer(child: QueueScreen()),
@@ -49,8 +48,7 @@ class NowPlayingScreen extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors:
-                AppThemes.gradientData[themeManager.appTheme] ??
+            colors: AppThemes.gradientData[themeManager.appTheme] ??
                 AppThemes.darkGradient,
           ),
         ),
@@ -64,19 +62,18 @@ class NowPlayingScreen extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      // Using Flexible allows the album art to take up available
-                      // space but also shrink if the screen is small.
                       Flexible(
-                        flex: 5, // Give it more weight
+                        flex:
+                            7, // Increased from 5 to give the image more space
                         child: _albumArt(context),
                       ),
-                      const Spacer(flex: 1), // Dynamic spacing
+                      const Spacer(flex: 1),
                       _songDetails(currentSong, theme),
                       const SizedBox(height: 20),
                       _seekBar(playerManager),
                       const SizedBox(height: 20),
                       _playbackControls(playerManager, theme, inactiveColor),
-                      const Spacer(flex: 1), // Dynamic spacing
+                      const Spacer(flex: 1),
                     ],
                   ),
                 ),
@@ -84,8 +81,6 @@ class NowPlayingScreen extends StatelessWidget {
       ),
     );
   }
-
-  // --- Reusable UI Component Widgets ---
 
   Widget _albumArt(BuildContext context) {
     return Container(
@@ -113,7 +108,7 @@ class NowPlayingScreen extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          "MAD Music", // Placeholder
+          "MAD Music",
           style: theme.textTheme.titleMedium,
         ),
       ],
@@ -171,22 +166,32 @@ class NowPlayingScreen extends StatelessWidget {
           iconSize: 48,
           onPressed: playerManager.playPrevious,
         ),
-        IconButton(
-          icon: Icon(
-            playerManager.isPlaying
-                ? Icons.pause_circle_filled
-                : Icons.play_circle_filled,
-            color: theme.colorScheme.primary,
+        if (playerManager.isLoading)
+          const SizedBox(
+            width: 72,
+            height: 72,
+            child: Padding(
+              padding: EdgeInsets.all(12.0),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        else
+          IconButton(
+            icon: Icon(
+              playerManager.isPlaying
+                  ? Icons.pause_circle_filled
+                  : Icons.play_circle_filled,
+              color: theme.colorScheme.primary,
+            ),
+            iconSize: 72,
+            onPressed: () {
+              if (playerManager.isPlaying) {
+                playerManager.pause();
+              } else {
+                playerManager.resume();
+              }
+            },
           ),
-          iconSize: 72,
-          onPressed: () {
-            if (playerManager.isPlaying) {
-              playerManager.pause();
-            } else {
-              playerManager.resume();
-            }
-          },
-        ),
         IconButton(
           icon: const Icon(Icons.skip_next),
           iconSize: 48,

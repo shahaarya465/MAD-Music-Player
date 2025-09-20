@@ -27,29 +27,24 @@ class _SongsScreenState extends State<SongsScreen> {
   void initState() {
     super.initState();
     _initializeDirectoriesAndLoad();
-    _searchController.addListener(() {
-      _filterSongs(_searchController.text);
-    });
+    _searchController.addListener(_applyFilters);
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_applyFilters);
     _searchController.dispose();
     super.dispose();
   }
 
-  void _filterSongs(String query) {
-    if (query.isEmpty) {
-      setState(() {
-        _filteredSongs = _allSongs;
-      });
-      return;
-    }
-    final results = _allSongs.where((song) {
-      return song.title.toLowerCase().contains(query.toLowerCase());
-    }).toList();
+  void _applyFilters() {
+    final query = _searchController.text.toLowerCase();
     setState(() {
-      _filteredSongs = results;
+      _filteredSongs = _allSongs.where((song) {
+        final matchesQuery =
+            query.isEmpty || song.title.toLowerCase().contains(query);
+        return matchesQuery;
+      }).toList();
     });
   }
 
@@ -60,7 +55,7 @@ class _SongsScreenState extends State<SongsScreen> {
     );
     _songsDir = Directory('${madMusicPlayerDir.path}/Songs');
     if (!await _songsDir.exists()) await _songsDir.create();
-    _loadAllSongs();
+    await _loadAllSongs();
   }
 
   Future<void> _loadAllSongs() async {
@@ -73,20 +68,21 @@ class _SongsScreenState extends State<SongsScreen> {
       final musicLibrary = jsonDecode(await libraryFile.readAsString());
       final songList = <Song>[];
       musicLibrary.forEach((songId, details) {
-        // ** FIX: Added the required 'type' parameter **
-        songList.add(
-          Song(
-            id: songId,
-            title: details['title'],
-            path: details['path'],
-            type: SongType.local, // Specify that this is a local song
-          ),
-        );
+        if (details['type'] != 'online') {
+          songList.add(
+            Song(
+              id: songId,
+              title: details['title'],
+              path: details['path'],
+              type: SongType.local,
+            ),
+          );
+        }
       });
       if (mounted) {
         setState(() {
           _allSongs = songList;
-          _filteredSongs = songList;
+          _applyFilters();
         });
       }
     }
@@ -115,7 +111,11 @@ class _SongsScreenState extends State<SongsScreen> {
             const uuid = Uuid();
             final songId = uuid.v4();
             final songTitle = p.basenameWithoutExtension(destPath);
-            libraryContent[songId] = {'title': songTitle, 'path': destPath};
+            libraryContent[songId] = {
+              'title': songTitle,
+              'path': destPath,
+              'type': 'local',
+            };
             importCount++;
           }
         }
@@ -163,7 +163,7 @@ class _SongsScreenState extends State<SongsScreen> {
           SearchBarWidget(
             controller: _searchController,
             hintText: 'Search all songs...',
-            onChanged: _filterSongs,
+            onChanged: (_) => _applyFilters(),
           ),
           Expanded(
             child: _filteredSongs.isEmpty
