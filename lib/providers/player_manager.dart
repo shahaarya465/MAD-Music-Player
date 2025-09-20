@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 import '../models/song.dart';
@@ -10,28 +10,23 @@ import '../models/song.dart';
 enum RepeatMode { none, one, all }
 
 class PlayerManager with ChangeNotifier {
-  // Player and services
   final AudioPlayer _audioPlayer = AudioPlayer();
   final YoutubeExplode _youtubeExplode = YoutubeExplode();
 
-  // Player state
-  PlayerState _playerState = PlayerState(false, ProcessingState.idle);
+  PlayerState _playerState = PlayerState.stopped;
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
 
-  // Playlist state
   List<Song> _currentPlaylist = [];
   List<Song> _originalPlaylist = [];
   int? _currentIndex;
   bool _isShuffle = false;
   RepeatMode _repeatMode = RepeatMode.none;
 
-  // Recently played
   List<String> _recentlyPlayedSongIDs = [];
   List<String> get recentlyPlayedSongIDs => _recentlyPlayedSongIDs;
 
-  // Getters for UI
-  bool get isPlaying => _audioPlayer.playing;
+  bool get isPlaying => _playerState == PlayerState.playing;
   Duration get duration => _duration;
   Duration get position => _position;
   List<Song> get currentPlaylist => _currentPlaylist;
@@ -54,23 +49,23 @@ class PlayerManager with ChangeNotifier {
   }
 
   void _setupAudioPlayerListeners() {
-    _audioPlayer.playerStateStream.listen((state) {
+    _audioPlayer.onPlayerStateChanged.listen((state) {
       _playerState = state;
       notifyListeners();
     });
 
-    _audioPlayer.durationStream.listen((d) {
-      _duration = d ?? Duration.zero;
+    _audioPlayer.onDurationChanged.listen((d) {
+      _duration = d;
       notifyListeners();
     });
 
-    _audioPlayer.positionStream.listen((p) {
+    _audioPlayer.onPositionChanged.listen((p) {
       _position = p;
       notifyListeners();
     });
 
-    _audioPlayer.processingStateStream.listen((state) {
-      if (state == ProcessingState.completed) {
+    _audioPlayer.onPlayerComplete.listen((event) {
+      if (_repeatMode != RepeatMode.one) {
         playNext();
       }
     });
@@ -96,26 +91,20 @@ class PlayerManager with ChangeNotifier {
     if (song == null) return;
 
     try {
+      Source? source;
       if (song.type == SongType.local) {
-        // Play from a local file path
-        await _audioPlayer.setAudioSource(
-          AudioSource.uri(Uri.file(song.path!)),
-        );
+        source = DeviceFileSource(song.path!);
       } else {
-        // It's an online song, get the stream from YouTube
-        var manifest = await _youtubeExplode.videos.streamsClient.getManifest(
-          song.videoId!,
-        );
+        var manifest = await _youtubeExplode.videos.streamsClient
+            .getManifest(song.videoId!);
         var streamInfo = manifest.audioOnly.withHighestBitrate();
-        var streamUrl = streamInfo.url;
-        await _audioPlayer.setAudioSource(AudioSource.uri(streamUrl));
+        source = UrlSource(streamInfo.url.toString());
       }
 
-      _audioPlayer.play();
+      await _audioPlayer.play(source);
       _addSongToRecents(song.id);
     } catch (e) {
       print("Error playing song: $e");
-      // Optionally, skip to the next song on error
       playNext();
     }
   }
@@ -153,7 +142,7 @@ class PlayerManager with ChangeNotifier {
   }
 
   Future<void> pause() async => await _audioPlayer.pause();
-  Future<void> resume() async => await _audioPlayer.play();
+  Future<void> resume() async => await _audioPlayer.resume();
   Future<void> seek(Duration newPosition) async =>
       await _audioPlayer.seek(newPosition);
 
@@ -168,12 +157,6 @@ class PlayerManager with ChangeNotifier {
 
   Future<void> playNext() async {
     if (_currentIndex == null || _currentPlaylist.isEmpty) return;
-
-    if (_repeatMode == RepeatMode.one) {
-      seek(Duration.zero);
-      resume();
-      return;
-    }
 
     if (_isShuffle) {
       _currentIndex = Random().nextInt(_currentPlaylist.length);
@@ -198,8 +181,7 @@ class PlayerManager with ChangeNotifier {
     if (_isShuffle) {
       _currentIndex = Random().nextInt(_currentPlaylist.length);
     } else {
-      _currentIndex =
-          (_currentIndex! - 1 + _currentPlaylist.length) %
+      _currentIndex = (_currentIndex! - 1 + _currentPlaylist.length) %
           _currentPlaylist.length;
     }
     await _playCurrentSong();
@@ -220,27 +202,23 @@ class PlayerManager with ChangeNotifier {
       _currentIndex = _currentPlaylist.indexWhere((s) => s.id == currentSongId);
     }
 
-    // Update shuffle mode for just_audio
-    _audioPlayer.setShuffleModeEnabled(_isShuffle);
-
     notifyListeners();
   }
 
   void toggleRepeat() {
     if (_repeatMode == RepeatMode.none) {
       _repeatMode = RepeatMode.all;
-      _audioPlayer.setLoopMode(LoopMode.all);
+      _audioPlayer.setReleaseMode(ReleaseMode.release);
     } else if (_repeatMode == RepeatMode.all) {
       _repeatMode = RepeatMode.one;
-      _audioPlayer.setLoopMode(LoopMode.one);
+      _audioPlayer.setReleaseMode(ReleaseMode.loop);
     } else {
       _repeatMode = RepeatMode.none;
-      _audioPlayer.setLoopMode(LoopMode.off);
+      _audioPlayer.setReleaseMode(ReleaseMode.release);
     }
     notifyListeners();
   }
 
-  // --- Recents Management ---
   Future<void> _addSongToRecents(String songId) async {
     _recentlyPlayedSongIDs.remove(songId);
     _recentlyPlayedSongIDs.insert(0, songId);
@@ -254,9 +232,8 @@ class PlayerManager with ChangeNotifier {
   Future<void> _saveRecents() async {
     try {
       final documentsDir = await getApplicationDocumentsDirectory();
-      final recentsFile = File(
-        '${documentsDir.path}/MAD Music Player/recents.json',
-      );
+      final recentsFile =
+          File('${documentsDir.path}/MAD Music Player/recents.json');
       await recentsFile.writeAsString(jsonEncode(_recentlyPlayedSongIDs));
     } catch (e) {
       print("Error saving recents: $e");
@@ -266,9 +243,8 @@ class PlayerManager with ChangeNotifier {
   Future<void> _loadRecents() async {
     try {
       final documentsDir = await getApplicationDocumentsDirectory();
-      final recentsFile = File(
-        '${documentsDir.path}/MAD Music Player/recents.json',
-      );
+      final recentsFile =
+          File('${documentsDir.path}/MAD Music Player/recents.json');
       if (await recentsFile.exists()) {
         final content = await recentsFile.readAsString();
         _recentlyPlayedSongIDs = List<String>.from(jsonDecode(content));

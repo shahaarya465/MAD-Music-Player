@@ -5,7 +5,7 @@ publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.8.1
+  sdk: ">=3.0.0 <4.0.0"
 
 dependencies:
   flutter:
@@ -22,8 +22,6 @@ dependencies:
   http: ^1.2.1
   flutter_dotenv: ^5.1.0
   youtube_explode_dart: ^2.1.0
-  just_audio: ^0.9.36
-  just_audio_background: ^0.0.1-beta.11
 
 flutter_launcher_icons:
   android: true
