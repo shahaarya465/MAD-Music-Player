@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 project(runner LANGUAGES CXX)
 
 # The name of the executable created for the application.
-set(BINARY_NAME "mad_music")
+set(BINARY_NAME "MadMusic")
 
 # Explicitly opt in to modern CMake behaviors to avoid warnings with recent
 # versions of CMake.
