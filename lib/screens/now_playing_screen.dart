@@ -63,7 +63,8 @@ class NowPlayingScreen extends StatelessWidget {
                   child: Column(
                     children: [
                       Flexible(
-                        flex: 5,
+                        flex:
+                            7, // Increased from 5 to give the image more space
                         child: _albumArt(context),
                       ),
                       const Spacer(flex: 1),
@@ -165,7 +166,6 @@ class NowPlayingScreen extends StatelessWidget {
           iconSize: 48,
           onPressed: playerManager.playPrevious,
         ),
-        // This is the updated part
         if (playerManager.isLoading)
           const SizedBox(
             width: 72,

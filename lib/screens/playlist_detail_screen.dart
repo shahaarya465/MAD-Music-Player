@@ -239,6 +239,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // Blurred Background
                   Image.asset(
                     'assets/icon/icon.png',
                     fit: BoxFit.cover,
@@ -249,23 +250,27 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                       color: Colors.black.withOpacity(0.3),
                     ),
                   ),
+                  // Centered Album Art with Scaling
                   Center(
-                    child: Container(
-                      width: 180,
-                      height: 180,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        image: const DecorationImage(
-                          image: AssetImage('assets/icon/icon.png'),
-                          fit: BoxFit.cover,
+                    child: Transform.scale(
+                      scale: 2.0, // This makes the logo 2x bigger
+                      child: Container(
+                        width: 180,
+                        height: 180,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          image: const DecorationImage(
+                            image: AssetImage('assets/icon/icon.png'),
+                            fit: BoxFit.cover,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.5),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            )
+                          ],
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.5),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          )
-                        ],
                       ),
                     ),
                   ),
