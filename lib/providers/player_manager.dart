@@ -23,10 +23,16 @@ class PlayerManager with ChangeNotifier {
   bool _isShuffle = false;
   RepeatMode _repeatMode = RepeatMode.none;
 
+  bool _isLoading = false;
+
+  // This token will help us manage concurrent loading requests
+  int _loadingToken = 0;
+
   List<String> _recentlyPlayedSongIDs = [];
   List<String> get recentlyPlayedSongIDs => _recentlyPlayedSongIDs;
 
   bool get isPlaying => _playerState == PlayerState.playing;
+  bool get isLoading => _isLoading;
   Duration get duration => _duration;
   Duration get position => _position;
   List<Song> get currentPlaylist => _currentPlaylist;
@@ -51,6 +57,12 @@ class PlayerManager with ChangeNotifier {
   void _setupAudioPlayerListeners() {
     _audioPlayer.onPlayerStateChanged.listen((state) {
       _playerState = state;
+      if (state == PlayerState.playing ||
+          state == PlayerState.paused ||
+          state == PlayerState.completed ||
+          state == PlayerState.stopped) {
+        _isLoading = false;
+      }
       notifyListeners();
     });
 
@@ -90,6 +102,13 @@ class PlayerManager with ChangeNotifier {
     final song = currentSong;
     if (song == null) return;
 
+    // Increment the token for each new request
+    final localToken = ++_loadingToken;
+
+    _isLoading = true;
+    _playerState = PlayerState.stopped;
+    notifyListeners();
+
     try {
       Source? source;
       if (song.type == SongType.local) {
@@ -101,10 +120,20 @@ class PlayerManager with ChangeNotifier {
         source = UrlSource(streamInfo.url.toString());
       }
 
+      // Before playing, check if this is still the latest request
+      if (localToken != _loadingToken) {
+        // A newer request has come in, so we abort this one
+        return;
+      }
+
       await _audioPlayer.play(source);
       _addSongToRecents(song.id);
     } catch (e) {
-      print("Error playing song: $e");
+      debugPrint("Error playing song: $e");
+      if (localToken == _loadingToken) {
+        _isLoading = false;
+        notifyListeners();
+      }
       playNext();
     }
   }
@@ -132,9 +161,13 @@ class PlayerManager with ChangeNotifier {
 
     if (_currentIndex == oldIndex) {
       _currentIndex = newIndex;
-    } else if (oldIndex < _currentIndex! && newIndex >= _currentIndex!) {
+    } else if (_currentIndex != null &&
+        oldIndex < _currentIndex! &&
+        newIndex >= _currentIndex!) {
       _currentIndex = _currentIndex! - 1;
-    } else if (oldIndex > _currentIndex! && newIndex <= _currentIndex!) {
+    } else if (_currentIndex != null &&
+        oldIndex > _currentIndex! &&
+        newIndex <= _currentIndex!) {
       _currentIndex = _currentIndex! + 1;
     }
 
@@ -236,7 +269,7 @@ class PlayerManager with ChangeNotifier {
           File('${documentsDir.path}/MAD Music Player/recents.json');
       await recentsFile.writeAsString(jsonEncode(_recentlyPlayedSongIDs));
     } catch (e) {
-      print("Error saving recents: $e");
+      debugPrint("Error saving recents: $e");
     }
   }
 
@@ -251,7 +284,7 @@ class PlayerManager with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      print("Error loading recents: $e");
+      debugPrint("Error loading recents: $e");
     }
   }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/player_manager.dart';
-import '../screens/now_playing_screen.dart'; // Import the new screen
+import '../screens/now_playing_screen.dart';
 
 class MiniPlayer extends StatelessWidget {
   const MiniPlayer({
@@ -13,13 +13,11 @@ class MiniPlayer extends StatelessWidget {
     final playerManager = Provider.of<PlayerManager>(context);
     final theme = Theme.of(context);
 
-    // If there's no song, don't show anything.
     if (playerManager.currentSongTitle == null) {
       return const SizedBox.shrink();
     }
 
     return GestureDetector(
-      // When the mini player is tapped, navigate to the full NowPlayingScreen
       onTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(
@@ -45,14 +43,12 @@ class MiniPlayer extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Linear progress indicator for the song
             LinearProgressIndicator(
               value: (playerManager.duration.inSeconds > 0)
                   ? playerManager.position.inSeconds /
                       playerManager.duration.inSeconds
                   : 0.0,
-              backgroundColor:
-                  theme.colorScheme.primary.withOpacity(0.3),
+              backgroundColor: theme.colorScheme.primary.withOpacity(0.3),
               valueColor:
                   AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
             ),
@@ -61,7 +57,6 @@ class MiniPlayer extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
               child: Row(
                 children: [
-                  // Album art using your logo
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4.0),
                     child: Image.asset(
@@ -72,7 +67,6 @@ class MiniPlayer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Song title
                   Expanded(
                     child: Text(
                       playerManager.currentSongTitle!,
@@ -82,27 +76,37 @@ class MiniPlayer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Playback controls
                   IconButton(
                     icon: const Icon(Icons.skip_previous_rounded),
                     onPressed: playerManager.playPrevious,
                   ),
-                  IconButton(
-                    icon: Icon(
-                      playerManager.isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
-                      color: theme.colorScheme.primary,
+                  // This is the updated part
+                  if (playerManager.isLoading)
+                    const SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else
+                    IconButton(
+                      icon: Icon(
+                        playerManager.isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        color: theme.colorScheme.primary,
+                      ),
+                      iconSize: 36,
+                      onPressed: () {
+                        if (playerManager.isPlaying) {
+                          playerManager.pause();
+                        } else {
+                          playerManager.resume();
+                        }
+                      },
                     ),
-                    iconSize: 36,
-                    onPressed: () {
-                      if (playerManager.isPlaying) {
-                        playerManager.pause();
-                      } else {
-                        playerManager.resume();
-                      }
-                    },
-                  ),
                   IconButton(
                     icon: const Icon(Icons.skip_next_rounded),
                     onPressed: playerManager.playNext,

@@ -213,7 +213,10 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                         itemBuilder: (context, index) {
                           final song = _filteredSongs[index];
                           return ListTile(
-                            leading: const Icon(Icons.music_note),
+                            leading: Icon(
+                              Icons.music_note,
+                              color: Theme.of(context).iconTheme.color,
+                            ),
                             title: Text(song.title),
                             onTap: () {
                               playerManager.play(_filteredSongs, index);
@@ -239,10 +242,11 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                   value: 'addToQueue',
                                   child: Text('Add to Queue'),
                                 ),
-                                const PopupMenuItem(
-                                  value: 'remove',
-                                  child: Text('Remove from Playlist'),
-                                ),
+                                if (!widget.isAllSongsPlaylist)
+                                  const PopupMenuItem(
+                                    value: 'remove',
+                                    child: Text('Remove from Playlist'),
+                                  ),
                               ],
                             ),
                           );
