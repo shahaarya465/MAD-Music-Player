@@ -24,8 +24,6 @@ class PlayerManager with ChangeNotifier {
   RepeatMode _repeatMode = RepeatMode.none;
 
   bool _isLoading = false;
-
-  // This token will help us manage concurrent loading requests
   int _loadingToken = 0;
 
   List<String> _recentlyPlayedSongIDs = [];
@@ -102,7 +100,9 @@ class PlayerManager with ChangeNotifier {
     final song = currentSong;
     if (song == null) return;
 
-    // Increment the token for each new request
+    // Explicitly stop the previous song before loading the new one
+    await _audioPlayer.stop();
+
     final localToken = ++_loadingToken;
 
     _isLoading = true;
@@ -120,9 +120,7 @@ class PlayerManager with ChangeNotifier {
         source = UrlSource(streamInfo.url.toString());
       }
 
-      // Before playing, check if this is still the latest request
       if (localToken != _loadingToken) {
-        // A newer request has come in, so we abort this one
         return;
       }
 
